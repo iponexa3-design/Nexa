@@ -58,6 +58,20 @@ export function calculateListingFigures(
   };
 }
 
+/**
+ * Factual difference between what actually listed and what GMP estimated -
+ * a comparison only, never framed as a "winner" or "better" outcome.
+ */
+export function calculateListingDifference(
+  estimatedListingPrice: number | null | undefined,
+  actualListingPrice: number | null | undefined,
+): number | null {
+  if (!isFiniteNumber(estimatedListingPrice) || !isFiniteNumber(actualListingPrice)) {
+    return null;
+  }
+  return actualListingPrice - estimatedListingPrice;
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }

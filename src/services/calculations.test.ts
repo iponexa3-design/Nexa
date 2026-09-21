@@ -4,6 +4,7 @@ import {
   calculateEstimatedGainPerShare,
   calculateEstimatedListingPrice,
   calculateGmpPercentage,
+  calculateListingDifference,
 } from "@/services/calculations";
 
 // Spec section 5/39 worked example: priceBandHigh=420, gmp=50, lotSize=35.
@@ -46,5 +47,12 @@ describe("calculation engine", () => {
   it("supports a negative gmp (discount to issue price)", () => {
     expect(calculateEstimatedListingPrice(420, -10)).toBe(410);
     expect(calculateEstimatedGainPerLot(-10, 35)).toBe(-350);
+  });
+
+  it("calculates the factual difference between actual and estimated listing price", () => {
+    expect(calculateListingDifference(470, 465)).toBe(-5);
+    expect(calculateListingDifference(470, 480)).toBe(10);
+    expect(calculateListingDifference(null, 465)).toBeNull();
+    expect(calculateListingDifference(470, null)).toBeNull();
   });
 });

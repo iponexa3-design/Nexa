@@ -1,6 +1,11 @@
 import { IpoSection, EmptyState } from "@/components/ipo/IpoSection";
+import { IpoCard } from "@/components/ipo/IpoCard";
+import { RecentlyListedIpoCard } from "@/components/ipo/RecentlyListedIpoCard";
+import { getHomepageIpoGroups } from "@/services/ipo-query-service";
 
-export default function Home() {
+export default async function Home() {
+  const { upcoming, open, recentlyListed } = await getHomepageIpoGroups();
+
   return (
     <div className="bg-gradient-to-b from-indigo-50/60 via-white to-white">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -31,10 +36,15 @@ export default function Home() {
           accent="blue"
           icon={<CalendarIcon />}
         >
-          <EmptyState
-            accent="blue"
-            message="No upcoming IPO data yet. This section will populate once IPO data is connected."
-          />
+          {upcoming.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {upcoming.map((ipo) => (
+                <IpoCard key={ipo.slug} ipo={ipo} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState accent="blue" message="No upcoming IPOs right now." />
+          )}
         </IpoSection>
 
         <IpoSection
@@ -43,10 +53,15 @@ export default function Home() {
           accent="emerald"
           icon={<PulseIcon />}
         >
-          <EmptyState
-            accent="emerald"
-            message="No open IPO data yet. This section will populate once IPO data is connected."
-          />
+          {open.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {open.map((ipo) => (
+                <IpoCard key={ipo.slug} ipo={ipo} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState accent="emerald" message="No IPOs are open for subscription right now." />
+          )}
         </IpoSection>
 
         <IpoSection
@@ -55,15 +70,21 @@ export default function Home() {
           accent="violet"
           icon={<ChartIcon />}
         >
-          <EmptyState
-            accent="violet"
-            message="No recently listed IPO data yet. This section will populate once IPO data is connected."
-          />
+          {recentlyListed.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recentlyListed.map((ipo) => (
+                <RecentlyListedIpoCard key={ipo.slug} ipo={ipo} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState accent="violet" message="No recently listed IPOs yet." />
+          )}
         </IpoSection>
       </div>
     </div>
   );
 }
+
 
 function CalendarIcon() {
   return (
