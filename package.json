@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "fetch:ipos": "tsx src/jobs/fetch-ipo-data.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

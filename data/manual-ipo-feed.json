@@ -1,0 +1,35 @@
+{
+  "ipos": [
+    {
+      "companyName": "Sample Manual Feed Ltd",
+      "slug": "sample-manual-feed-ipo",
+      "ipoType": "MAINBOARD",
+      "exchange": "NSE, BSE",
+      "priceBandLow": 180,
+      "priceBandHigh": 190,
+      "issueSize": 300,
+      "lotSize": 78,
+      "openDate": "2026-09-24",
+      "closeDate": "2026-09-26",
+      "faceValue": 10
+    },
+    {
+      "companyName": "Sample Manual Feed SME Ltd",
+      "slug": "sample-manual-feed-sme-ipo",
+      "ipoType": "SME",
+      "exchange": "BSE SME",
+      "priceBandLow": 55,
+      "priceBandHigh": 58,
+      "issueSize": 12,
+      "lotSize": 2000,
+      "openDate": "2026-09-29",
+      "closeDate": "2026-10-01",
+      "faceValue": 10
+    }
+  ],
+  "gmp": [
+    { "ipoSlug": "sample-manual-feed-ipo", "gmp": 22, "sourceUpdatedAt": "2026-09-21T06:00:00Z" },
+    { "ipoSlug": "sample-manual-feed-sme-ipo", "gmp": 4, "sourceUpdatedAt": "2026-09-21T06:00:00Z" }
+  ],
+  "subscription": []
+}
