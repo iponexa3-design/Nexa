@@ -6,6 +6,7 @@ import {
   validateIpo,
   validateSubscription,
 } from "@/services/ipo-validation";
+import { calculateListingFigures } from "@/services/calculations";
 import { computeIpoStatus } from "@/utils/ipo-status";
 import { logger } from "@/utils/logger";
 
@@ -73,12 +74,18 @@ export async function ingestGmp(gmp: NormalizedGmp): Promise<boolean> {
       return false;
     }
 
-    // gmpPercentage/estimatedListingPrice/etc. are computed by the
-    // calculation engine (Phase 4) and backfilled onto this row then.
+    const priceBandHigh = ipo.priceBandHigh ? Number(ipo.priceBandHigh) : null;
+    const lotSize = ipo.lotSize ?? null;
+    const figures = calculateListingFigures(gmp.gmp, priceBandHigh, lotSize);
+
     await prisma.gmp.create({
       data: {
         ipoId: ipo.id,
         gmp: gmp.gmp,
+        gmpPercentage: figures.gmpPercentage,
+        estimatedListingPrice: figures.estimatedListingPrice,
+        estimatedGainPerShare: figures.estimatedGainPerShare,
+        estimatedGainPerLot: figures.estimatedGainPerLot,
         source: gmp.source,
         sourceUpdatedAt: gmp.sourceUpdatedAt ? new Date(gmp.sourceUpdatedAt) : null,
       },
