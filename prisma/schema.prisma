@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum IpoType {
+  MAINBOARD
+  SME
+}
+
+// Calculated dynamically from dates; CLOSED means "closed, not yet listed" -
+// still reachable via its details page, but not shown on the homepage.
+enum IpoStatus {
+  UPCOMING
+  OPEN
+  CLOSED
+  LISTED
+}
+
+enum DataSourceStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+model Ipo {
+  id                 String    @id @default(uuid())
+  companyName        String    @map("company_name")
+  slug               String    @unique
+  symbol             String?
+  ipoType            IpoType   @map("ipo_type")
+  exchange           String
+  status             IpoStatus @default(UPCOMING)
+  priceBandLow       Decimal?  @map("price_band_low")
+  priceBandHigh      Decimal?  @map("price_band_high")
+  issueSize          Decimal?  @map("issue_size")
+  lotSize            Int?      @map("lot_size")
+  openDate           DateTime? @map("open_date")
+  closeDate          DateTime? @map("close_date")
+  allotmentDate      DateTime? @map("allotment_date")
+  listingDate        DateTime? @map("listing_date")
+  actualListingPrice Decimal?  @map("actual_listing_price")
+  faceValue          Decimal?  @map("face_value")
+  issuePrice         Decimal?  @map("issue_price")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  gmps          Gmp[]
+  subscriptions Subscription[]
+
+  @@index([status])
+  @@map("ipos")
+}
+
+// One row per GMP update, so history/trend can be reconstructed by ordering on recordedAt.
+model Gmp {
+  id                    String    @id @default(uuid())
+  ipoId                 String    @map("ipo_id")
+  gmp                   Decimal
+  gmpPercentage         Decimal?  @map("gmp_percentage")
+  estimatedListingPrice Decimal?  @map("estimated_listing_price")
+  estimatedGainPerShare Decimal?  @map("estimated_gain_per_share")
+  estimatedGainPerLot   Decimal?  @map("estimated_gain_per_lot")
+  recordedAt            DateTime  @default(now()) @map("recorded_at")
+  source                String
+  sourceUpdatedAt       DateTime? @map("source_updated_at")
+
+  ipo Ipo @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([ipoId, recordedAt])
+  @@map("gmp_history")
+}
+
+model Subscription {
+  id               String    @id @default(uuid())
+  ipoId            String    @map("ipo_id")
+  qib              Decimal?
+  nii              Decimal?
+  retail           Decimal?
+  employee         Decimal?
+  total            Decimal?
+  subscriptionDate DateTime? @map("subscription_date")
+  source           String
+  sourceUpdatedAt  DateTime? @map("source_updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  ipo Ipo @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([ipoId, subscriptionDate])
+  @@map("subscriptions")
+}
+
+// Reference/catalog of data providers (exchange, GMP API, etc.), independent of individual IPO rows.
+model DataSource {
+  id          String           @id @default(uuid())
+  sourceName  String           @map("source_name")
+  sourceType  String           @map("source_type")
+  sourceUrl   String?          @map("source_url")
+  lastUpdated DateTime?        @map("last_updated")
+  status      DataSourceStatus @default(ACTIVE)
+
+  @@map("data_sources")
+}
