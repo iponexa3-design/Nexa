@@ -89,6 +89,7 @@ if [ ! -f "$ENV_FILE" ]; then
   set_env IPO_API_STATUSES "open,upcoming,closed,listed,announced"
   set_env IPO_API_PAGE_LIMIT "3"
   set_env IPO_REFRESH_SCHEDULER "on"
+  set_env IPO_API_MONTHLY_BUDGET "4500"
   set_env CRON_SECRET "$(openssl rand -hex 32)"
   set_env NEXT_PUBLIC_SITE_URL "$SITE_URL"
 elif [ -n "$NEW_DATABASE_URL" ]; then
