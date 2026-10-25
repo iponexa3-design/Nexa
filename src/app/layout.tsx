@@ -36,11 +36,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-[#f3f7f6] text-[#202b2d]">
         <ConsentDefaults />
+        <AdSense />
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
         <GoogleAnalytics />
-        <AdSense />
         <CookieNotice enabled={analyticsId() !== null || adsenseClient() !== null} />
       </body>
     </html>
