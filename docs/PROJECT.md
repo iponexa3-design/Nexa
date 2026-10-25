@@ -65,6 +65,8 @@ No passwords or keys are stored in this document or in the repository.
 | Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view |
 | Compare IPO | `/compare?ipos=a,b,c` | 2 or 3 IPOs side by side (issue details, GMP estimate, actual listing) |
 | IPO detail | `/ipo/<slug>` | Issue details, dates, timeline, GMP and estimate (not listed yet), subscription, actual listing performance (listed), strengths/risks, documents |
+| Privacy policy | `/privacy` | What is collected (Google Analytics only after cookie consent, server logs), linked from the footer and the cookie notice |
+| Sitemap / robots | `/sitemap.xml`, `/robots.txt` | All pages incl. every IPO detail page, for search engines (refreshed daily) |
 | Refresh endpoint | `/api/cron/refresh-ipos` | Protected trigger for a data refresh (`Authorization: Bearer <CRON_SECRET>`); not used by the current server, which has its own scheduler |
 
 Status colours: Open green, Upcoming blue, Awaiting listing violet, Listed amber.
@@ -264,6 +266,14 @@ Log in: `ssh -i ~/.ssh/iponexa_server ubuntu@159.89.167.205`, then `cd ~/iponexa
 
 Visitor statistics: Google Analytics → Reports → Realtime (live) and Reports →
 Engagement (daily). Ad blockers hide visits from browsers that use them.
+Analytics uses Consent Mode: cookies are set only after a visitor clicks
+"Accept" in the cookie notice; without consent GA gets cookieless signals only.
+
+Scheduled jobs on the server (`crontab -l`): nightly database backup (21:00
+UTC) and, until iponexa.in points here, `deploy/auto-domain-redirect.sh`
+every 30 minutes (log: `~/backups/domain-redirect.log`). The redirect job
+obtains a certificate, redirects iponexa.in to https://iponexa.com and then
+removes itself.
 
 ## 10. Backups and recovery
 
@@ -330,13 +340,14 @@ case of losing the whole server. Copying backups off the server is an open item.
 
 ## 14. Open items
 
-- Point `iponexa.in` to the server (GoDaddy: switch nameservers to GoDaddy,
-  `A @ → 159.89.167.205`), then add HTTPS and a redirect to iponexa.com.
+- Point `iponexa.in` to the server (GoDaddy → iponexa.in → DNS Records:
+  edit `A @` from "Parked" to `159.89.167.205`). Everything after that is
+  automatic (HTTPS + redirect to iponexa.com within 30 minutes).
 - Check the domains are not listed for sale on Afternic.
 - Delete the DigitalOcean API token used for setup.
 - Create a fresh IPO Alert API key and put it on the server; correct
   `.data/ipoalerts-usage.json` to the real count from the IPO Alert dashboard.
-- Add a privacy policy page; register the site in Google Search Console.
+- Register the site in Google Search Console and submit
+  `https://iponexa.com/sitemap.xml`. Have the privacy policy reviewed and
+  add a contact email to it.
 - Copy database backups off the server (e.g. DigitalOcean Spaces).
-- Detail page header for "awaiting listing" IPOs should read
-  "Closed <date> · lists <date>".
