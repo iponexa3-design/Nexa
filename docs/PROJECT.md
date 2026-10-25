@@ -52,6 +52,7 @@ No passwords or keys are stored in this document or in the repository.
 | **NSE / BSE** | Free public daily price files ("bhavcopy") for listing prices; NSE bid details for subscription | No account |
 | **Let's Encrypt** | Free HTTPS certificates for iponexa.com, iponexa.in and their www names, auto-renewing | Managed on the server by certbot |
 | **Google Analytics 4** | Visitor statistics, Measurement ID **G-M69FL95KVH** | analytics.google.com |
+| **Google AdSense** | Advertising income, publisher ID **ca-pub-8432429701323264** (Auto ads; placements chosen in the AdSense dashboard) | adsense.google.com |
 | **GitHub** | Private code repository `iponexa3-design/Nexa` (backup copy; the server does not pull from it) | github.com |
 
 **DNS (GoDaddy):** iponexa.com `A @ → 159.89.167.205`, `CNAME www → iponexa.com`; iponexa.in `A @ → 159.89.167.205` (and www). Nginx redirects iponexa.in, www.iponexa.in and www.iponexa.com to https://iponexa.com; Let's Encrypt certificates cover all four names.
@@ -65,7 +66,8 @@ No passwords or keys are stored in this document or in the repository.
 | Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view |
 | Compare IPO | `/compare?ipos=a,b,c` | 2 or 3 IPOs side by side (issue details, GMP estimate, actual listing) |
 | IPO detail | `/ipo/<slug>` | Issue details, dates, timeline, GMP and estimate (not listed yet), subscription, actual listing performance (listed), strengths/risks, documents |
-| Privacy policy | `/privacy` | What is collected (Google Analytics only after cookie consent, server logs), linked from the footer and the cookie notice |
+| Privacy policy | `/privacy` | What is collected (Google Analytics only after cookie consent, server logs), advertising (AdSense), linked from the footer and the cookie notice |
+| ads.txt | `/ads.txt` | Authorises Google AdSense to sell ads on the site (`google.com, pub-8432429701323264, DIRECT, f08c47fec0942fa0`) |
 | Sitemap / robots | `/sitemap.xml`, `/robots.txt` | All pages incl. every IPO detail page, for search engines (refreshed daily) |
 | Refresh endpoint | `/api/cron/refresh-ipos` | Protected trigger for a data refresh (`Authorization: Bearer <CRON_SECRET>`); not used by the current server, which has its own scheduler |
 
@@ -121,7 +123,7 @@ src/app/                    Pages (App Router) and /api/cron/refresh-ipos
 src/components/gmp/         GMP Tracker (tables, cards, summary strip), indicators
 src/components/ipo/         IPO cards, list rows, grid/list switch, sections
 src/components/home/        Homepage calendar
-src/components/layout/      Header, navigation, footer, Google Analytics tag
+src/components/layout/      Header, navigation, footer, Google Analytics, AdSense, cookie notice
 src/services/
   calculations.ts           Price basis, estimates, actual listing gains, GMP freshness
   gmp-tracker.ts            Derived figures, filters, sorting, listed summary, 45-day window
@@ -159,6 +161,7 @@ On the server: `/home/ubuntu/iponexa/.env.local`.
 | `CRON_SECRET` | *secret* | Protects `/api/cron/refresh-ipos` |
 | `NEXT_PUBLIC_SITE_URL` | `https://iponexa.com` | Site address used in links (build time) |
 | `NEXT_PUBLIC_GA_ID` | `G-M69FL95KVH` | Google Analytics (build time) |
+| `NEXT_PUBLIC_ADSENSE_CLIENT` | `ca-pub-8432429701323264` | Google AdSense (build time); unset = no ads, no ads.txt entry needed |
 
 `NEXT_PUBLIC_*` values are baked in at build time: run a deploy after changing them.
 Other settings take effect after `pm2 restart iponexa --update-env`.
@@ -269,6 +272,13 @@ Engagement (daily). Ad blockers hide visits from browsers that use them.
 Analytics uses Consent Mode: cookies are set only after a visitor clicks
 "Accept" in the cookie notice; without consent GA gets cookieless signals only.
 
+Advertising: Google AdSense with Auto ads. The site loads the AdSense script,
+the `google-adsense-account` verification meta tag and `/ads.txt`; where and how
+many ads appear is set in AdSense → Ads → By site. The same Consent Mode choice
+applies: without "Accept", AdSense shows non-personalised ads only. The consent
+defaults are an inline script at the top of `<body>` so they always run before
+any Google script. Earnings: AdSense → Reports.
+
 Scheduled jobs on the server (`crontab -l`): nightly database backup (21:00
 UTC). `deploy/auto-domain-redirect.sh` can be scheduled the same way for any
 future extra domain: it waits for the DNS change, obtains a certificate,
@@ -306,6 +316,7 @@ case of losing the whole server. Copying backups off the server is an open item.
 | A listed IPO has no listing price | Exchange file missing that day or listing date wrong at the source: `npm run listing:set -- <slug> <price>` |
 | Site works in one browser, not another | That browser cached the old (pre-launch) address: close it fully, clear its DNS cache (`edge://net-internals/#dns` / `chrome://net-internals/#dns`) and cached files |
 | Google Analytics shows nothing | Check Reports → Realtime while visiting from a phone without an ad blocker; the "no data received" banner can lag up to 48 h |
+| No ads showing | Normal until Google approves the site (AdSense → Sites, can take days to weeks) and Auto ads is on; ad blockers hide ads; check `/ads.txt` is reachable |
 | HTTPS certificate error | `sudo certbot renew` then `sudo systemctl reload nginx` |
 
 ## 12. Security
@@ -319,8 +330,9 @@ case of losing the whole server. Copying backups off the server is an open item.
 - DigitalOcean API tokens are only needed to create a new server; delete them
   afterwards.
 - Before scaling up or monetising, review the IPO Alert terms and the NSE/BSE
-  website terms for commercial use of the data, and add a privacy policy
-  (Google Analytics uses cookies; India's DPDP Act applies).
+  website terms for commercial use of the data (the site now carries ads),
+  and have the privacy policy at `/privacy` reviewed (Google Analytics and
+  AdSense use cookies; India's DPDP Act applies).
 
 ## 13. Decisions and known limitations
 

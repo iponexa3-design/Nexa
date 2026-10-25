@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { analyticsId, GoogleAnalytics } from "@/components/layout/GoogleAnalytics";
+import { analyticsId, ConsentDefaults, GoogleAnalytics } from "@/components/layout/GoogleAnalytics";
+import { AdSense, adsenseClient } from "@/components/layout/AdSense";
 import { CookieNotice } from "@/components/layout/CookieNotice";
 import { siteConfig } from "@/lib/site-config";
 import "./globals.css";
@@ -23,6 +24,8 @@ export const metadata: Metadata = {
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  // AdSense site-ownership verification.
+  ...(adsenseClient() ? { other: { "google-adsense-account": adsenseClient() as string } } : {}),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -32,11 +35,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-[#f3f7f6] text-[#202b2d]">
+        <ConsentDefaults />
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
         <GoogleAnalytics />
-        <CookieNotice enabled={analyticsId() !== null} />
+        <AdSense />
+        <CookieNotice enabled={analyticsId() !== null || adsenseClient() !== null} />
       </body>
     </html>
   );
