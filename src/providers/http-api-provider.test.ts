@@ -46,7 +46,7 @@ describe("HttpApiProvider.fetchIpos", () => {
             },
           ],
         }),
-      } as any)
+      } as unknown as Response)
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -69,7 +69,7 @@ describe("HttpApiProvider.fetchIpos", () => {
             },
           ],
         }),
-      } as any);
+      } as unknown as Response);
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -142,7 +142,7 @@ describe("HttpApiProvider.fetchIpos", () => {
         status: 429,
         headers: new Headers(),
         json: async () => ({ detail: "Too many requests", meta: { expiresIn: 0 } }),
-      } as any)
+      } as unknown as Response)
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -159,7 +159,7 @@ describe("HttpApiProvider.fetchIpos", () => {
             endDate: "2026-10-20", typeOfIssue: "IPO",
           }],
         }),
-      } as any);
+      } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new HttpApiProvider({
@@ -182,7 +182,7 @@ describe("HttpApiProvider.fetchIpos", () => {
       json: async () => ({
         error: "The usage limit for this API key has been reached. (ERR:QTAEXCEEDED)",
       }),
-    } as any);
+    } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new HttpApiProvider({
@@ -209,7 +209,7 @@ describe("HttpApiProvider.fetchIpos", () => {
           { category: "Total", noOfTime: "2.1" },
         ],
       }),
-    } as any);
+    } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new HttpApiProvider({

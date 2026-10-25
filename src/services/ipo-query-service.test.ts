@@ -15,6 +15,7 @@ vi.mock("@/providers", () => ({
 
 import { prisma } from "@/db/prisma";
 import { getIpoDataProvider } from "@/providers";
+import type { IpoDataProvider } from "@/providers/ipo-data-provider";
 import {
   clearIpoLiveCache,
   getGmpTrackerData,
@@ -57,7 +58,7 @@ describe("getHomepageIpoGroups", () => {
         sourceUpdatedAt: "2026-02-12T10:00:00.000Z",
       }),
       fetchSubscription: async () => null,
-    } as any);
+    } as unknown as IpoDataProvider);
 
     const groups = await getHomepageIpoGroups();
 
@@ -98,7 +99,7 @@ describe("getHomepageIpoGroups", () => {
       fetchIpos,
       fetchGmp,
       fetchSubscription: async () => null,
-    } as any);
+    } as unknown as IpoDataProvider);
 
     await getHomepageIpoGroups();
     await getHomepageIpoGroups();
@@ -116,7 +117,7 @@ describe("getHomepageIpoGroups", () => {
       },
       fetchGmp: async () => null,
       fetchSubscription: async () => null,
-    } as any);
+    } as unknown as IpoDataProvider);
 
     const groups = await getHomepageIpoGroups();
 
@@ -165,7 +166,7 @@ describe("getIpoBySlug", () => {
       }],
       fetchGmp: async () => null,
       fetchSubscription: async () => null,
-    } as any);
+    } as unknown as IpoDataProvider);
 
     const ipo = await getIpoBySlug("example-ipo");
 
@@ -206,7 +207,7 @@ describe("getIpoBySlug", () => {
       fetchIpos,
       fetchGmp: async () => null,
       fetchSubscription: async () => null,
-    } as any);
+    } as unknown as IpoDataProvider);
 
     await getHomepageIpoGroups();
     const ipo = await getIpoBySlug("cached-ipo");
