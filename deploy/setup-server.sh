@@ -114,6 +114,11 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+# --- Daily database backup at 02:30 IST (21:00 UTC), 14 days kept.
+CRON_LINE="0 21 * * * bash $APP_DIR/deploy/backup-db.sh >> /home/$APP_USER/backups/backup.log 2>&1"
+mkdir -p "/home/$APP_USER/backups" && chown "$APP_USER":"$APP_USER" "/home/$APP_USER/backups"
+( crontab -u "$APP_USER" -l 2>/dev/null | grep -v 'deploy/backup-db.sh' ; echo "$CRON_LINE" ) | crontab -u "$APP_USER" -
+
 # --- PM2 starts the app again automatically after a server reboot.
 env PATH="$PATH:/usr/bin" pm2 startup systemd -u "$APP_USER" --hp "/home/$APP_USER" >/dev/null
 

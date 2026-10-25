@@ -23,6 +23,9 @@ git pull --ff-only
 echo "==> Installing packages"
 npm ci
 
+echo "==> Backing up the database before any migration"
+bash deploy/backup-db.sh
+
 echo "==> Preparing database"
 npx prisma generate
 npx prisma migrate deploy
@@ -33,5 +36,9 @@ npm run build
 echo "==> Starting"
 pm2 startOrReload deploy/ecosystem.config.cjs --update-env
 pm2 save
+
+# deploy/rollback.sh reads this to find the previous version.
+mkdir -p .data
+echo "$(date -u +%FT%TZ) $(git rev-parse --short HEAD) deploy" >> .data/deploy-history
 
 echo "==> Done. Check status with: pm2 status   |   logs: pm2 logs iponexa"
