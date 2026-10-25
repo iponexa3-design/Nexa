@@ -49,6 +49,7 @@ model Ipo {
   actualListingPrice Decimal?  @map("actual_listing_price")
   faceValue          Decimal?  @map("face_value")
   issuePrice         Decimal?  @map("issue_price")
+  researchData       Json?     @map("research_data")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 

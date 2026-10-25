@@ -14,5 +14,8 @@ export interface IpoDataProvider {
   readonly name: string;
   fetchIpos(): Promise<NormalizedIpo[]>;
   fetchGmp(ipoSlug: string): Promise<NormalizedGmp | null>;
-  fetchSubscription(ipoSlug: string): Promise<NormalizedSubscription | null>;
+  fetchSubscription(
+    ipoSlug: string,
+    symbol?: string | null,
+  ): Promise<NormalizedSubscription | null>;
 }

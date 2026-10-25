@@ -9,19 +9,35 @@ export function computeIpoStatus(dates: {
   closeDate?: Date | string | null;
   listingDate?: Date | string | null;
 }): ComputedIpoStatus {
-  const now = Date.now();
-  const openDate = toTime(dates.openDate);
-  const closeDate = toTime(dates.closeDate);
-  const listingDate = toTime(dates.listingDate);
+  const today = getIndiaDateKey(new Date());
+  const openDate = toDateKey(dates.openDate);
+  const closeDate = toDateKey(dates.closeDate);
+  const listingDate = toDateKey(dates.listingDate);
 
-  if (listingDate !== null && now >= listingDate) return "LISTED";
-  if (closeDate !== null && now > closeDate) return "CLOSED";
-  if (openDate !== null && now >= openDate) return "OPEN";
+  if (listingDate !== null && today >= listingDate) return "LISTED";
+  if (closeDate !== null && today > closeDate) return "CLOSED";
+  if (openDate !== null && today >= openDate) return "OPEN";
   return "UPCOMING";
 }
 
-function toTime(value?: Date | string | null): number | null {
+function toDateKey(value?: Date | string | null): string | null {
   if (!value) return null;
-  const time = value instanceof Date ? value.getTime() : Date.parse(value);
-  return Number.isNaN(time) ? null : time;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : getIndiaDateKey(date);
+}
+
+function getIndiaDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }

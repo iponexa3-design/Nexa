@@ -47,6 +47,7 @@ export class ManualJsonProvider implements IpoDataProvider {
 
   async fetchSubscription(
     ipoSlug: string,
+    _symbol?: string | null,
   ): Promise<NormalizedSubscription | null> {
     const feed = await this.readFeed();
     const entry = feed.subscription.find((item) => item.ipoSlug === ipoSlug);

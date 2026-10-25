@@ -20,6 +20,7 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error;
       if (attempt === maxRetries) break;
+      if (isExplicitlyNonRetryable(error)) break;
 
       const retryAfterMs = getRetryAfterMs(error);
       const backoffMs = retryAfterMs ?? baseDelayMs * 2 ** attempt;
@@ -28,6 +29,15 @@ export async function withRetry<T>(
   }
 
   throw lastError;
+}
+
+function isExplicitlyNonRetryable(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "retryable" in error &&
+    (error as { retryable?: unknown }).retryable === false
+  );
 }
 
 function getRetryAfterMs(error: unknown): number | null {

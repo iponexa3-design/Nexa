@@ -1,0 +1,1 @@
+ALTER TABLE "ipos" ADD COLUMN "research_data" JSONB;

@@ -1,8 +1,21 @@
+import { cache } from "react";
 import { prisma } from "@/db/prisma";
+import { getIpoDataProvider } from "@/providers";
 import { computeIpoStatus, type ComputedIpoStatus } from "@/utils/ipo-status";
+import {
+  compareTrackerRows,
+  deriveIpoFigures,
+  dropSupersededAnnouncements,
+  LISTED_HISTORY_DAYS,
+  trackerCategoryOf,
+  type GmpTrackerRow,
+  type IpoDerivedFigures,
+} from "@/services/gmp-tracker";
+import { buildWeekCalendar, type CalendarDay } from "@/services/homepage-insights";
+import type { IpoResearchData, NormalizedIpo } from "@/types/ipo";
 import type { IpoType } from "@/generated/prisma/enums";
 
-export interface IpoListItem {
+export interface IpoListItem extends IpoDerivedFigures {
   slug: string;
   companyName: string;
   ipoType: IpoType;
@@ -11,50 +24,178 @@ export interface IpoListItem {
   priceBandLow: number | null;
   priceBandHigh: number | null;
   lotSize: number | null;
+  issueSize: number | null;
+  subscriptionTimes: number | null;
+  subscriptionSource: string | null;
+  subscriptionUpdatedAt: Date | null;
   issuePrice: number | null;
   actualListingPrice: number | null;
   openDate: Date | null;
   closeDate: Date | null;
   listingDate: Date | null;
   gmp: number | null;
-  gmpPercentage: number | null;
-  estimatedListingPrice: number | null;
-  estimatedGainPerLot: number | null;
-  gmpUpdatedAt: Date | null;
+  gmpSource: string | null;
+  /** When the source quoted the GMP; null when the source gave no timestamp. */
+  gmpSourceUpdatedAt: Date | null;
+  /** When IPONexa stored the GMP value. */
+  gmpRecordedAt: Date | null;
 }
 
 export interface HomepageIpoGroups {
   upcoming: IpoListItem[];
   open: IpoListItem[];
+  /** Subscription closed, listing still pending. */
+  awaitingListing: IpoListItem[];
+  /** The 12 most recent listings shown on the homepage. */
   recentlyListed: IpoListItem[];
+  /** All listed IPOs in our records (recentlyListed is capped). */
+  listedCount: number;
+  /** Opens, closes and listings over the next 7 IST days. */
+  weekCalendar: CalendarDay[];
+  liveFeedUnavailable: boolean;
+  liveFeedQuotaExceeded: boolean;
+}
+
+export interface GmpTrackerData {
+  rows: GmpTrackerRow[];
+  liveFeedUnavailable: boolean;
+  liveFeedQuotaExceeded: boolean;
+  /** True when rows came straight from the provider because the database was unavailable or empty. */
+  servedFromLiveFeed: boolean;
+  dataUpdatedAt: Date | null;
+}
+
+interface IpoListItemsResult {
+  items: IpoListItem[];
+  liveFeedUnavailable: boolean;
+  liveFeedQuotaExceeded: boolean;
+  servedFromLiveFeed: boolean;
+  dataUpdatedAt: Date | null;
 }
 
 const listItemInclude = {
   gmps: { orderBy: { recordedAt: "desc" as const }, take: 1 },
+  subscriptions: { orderBy: { subscriptionDate: "desc" as const }, take: 1 },
 };
 
+const LIVE_CACHE_TTL_MS = 60_000;
+
+let liveListCache: { expiresAt: number; value: IpoListItemsResult } | null = null;
+let liveIpoRecordsCache: { expiresAt: number; value: NormalizedIpo[] } | null = null;
+const ipoDetailLiveCache: Map<string, { expiresAt: number; value: IpoDetail }> = new Map();
+
+export function clearIpoLiveCache(): void {
+  liveListCache = null;
+  liveIpoRecordsCache = null;
+  ipoDetailLiveCache.clear();
+}
+
+/**
+ * All IPO records, read from the database (populated by the scheduled
+ * ingest job). The provider is only called when the database is empty or
+ * unreachable, and that response is cached, so page renders never fan out
+ * to the external API. Wrapped in React cache() so several sections of
+ * one render share a single database query.
+ */
+const loadIpoListItems = cache(async (): Promise<IpoListItemsResult> => {
+  try {
+    const ipos = await prisma.ipo.findMany({
+      include: listItemInclude,
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (ipos.length === 0) {
+      console.warn("Database is empty; falling back to live provider for IPO list data");
+      return loadLiveIpoListItems();
+    }
+
+    const now = new Date();
+    return {
+      items: withinListedHistory(
+        dropSupersededAnnouncements(ipos.map((ipo) => toListItem(ipo, now))),
+        now,
+      ),
+      liveFeedUnavailable: false,
+      liveFeedQuotaExceeded: false,
+      servedFromLiveFeed: false,
+      dataUpdatedAt: ipos[0]?.updatedAt ?? null,
+    };
+  } catch (error) {
+    console.warn("Falling back to live provider for IPO list data", error);
+    return loadLiveIpoListItems();
+  }
+});
+
 export async function getHomepageIpoGroups(): Promise<HomepageIpoGroups> {
-  const ipos = await prisma.ipo.findMany({
-    include: listItemInclude,
-    orderBy: { updatedAt: "desc" },
-  });
+  const { items, liveFeedUnavailable, liveFeedQuotaExceeded } = await loadIpoListItems();
+  const now = new Date();
 
-  const items = ipos.map(toListItem);
+  return {
+    upcoming: items
+      .filter((item) => item.status === "UPCOMING")
+      .sort(byDateAsc((item) => item.openDate)),
+    open: items
+      .filter((item) => item.status === "OPEN")
+      .sort(byDateAsc((item) => item.closeDate)),
+    awaitingListing: items
+      .filter((item) => item.status === "CLOSED")
+      .sort(byDateAsc((item) => item.listingDate)),
+    recentlyListed: items
+      .filter((item) => item.status === "LISTED")
+      .sort(byDateDesc((item) => item.listingDate))
+      .slice(0, 12),
+    listedCount: items.filter((item) => item.status === "LISTED").length,
+    weekCalendar: buildWeekCalendar(items, now),
+    liveFeedUnavailable,
+    liveFeedQuotaExceeded,
+  };
+}
 
-  const upcoming = items
-    .filter((item) => item.status === "UPCOMING")
-    .sort(byDateAsc((item) => item.openDate));
+/** Every available IPO (upcoming, open, awaiting listing and listed) for the GMP tracker. */
+export async function getGmpTrackerData(): Promise<GmpTrackerData> {
+  const result = await loadIpoListItems();
+  return {
+    rows: result.items.map(toTrackerRow).sort(compareTrackerRows),
+    liveFeedUnavailable: result.liveFeedUnavailable,
+    liveFeedQuotaExceeded: result.liveFeedQuotaExceeded,
+    servedFromLiveFeed: result.servedFromLiveFeed,
+    dataUpdatedAt: result.dataUpdatedAt,
+  };
+}
 
-  const open = items
-    .filter((item) => item.status === "OPEN")
-    .sort(byDateAsc((item) => item.closeDate));
-
-  const recentlyListed = items
-    .filter((item) => item.status === "LISTED")
-    .sort(byDateDesc((item) => item.listingDate))
-    .slice(0, 12);
-
-  return { upcoming, open, recentlyListed };
+export function toTrackerRow(item: IpoListItem): GmpTrackerRow {
+  return {
+    slug: item.slug,
+    companyName: item.companyName,
+    ipoType: item.ipoType,
+    exchange: item.exchange,
+    status: item.status,
+    category: trackerCategoryOf(item.status),
+    priceBandLow: item.priceBandLow,
+    priceBandHigh: item.priceBandHigh,
+    issuePrice: item.issuePrice,
+    lotSize: item.lotSize,
+    openDate: toIso(item.openDate),
+    closeDate: toIso(item.closeDate),
+    listingDate: toIso(item.listingDate),
+    actualListingPrice: item.actualListingPrice,
+    gmp: item.gmp,
+    gmpSource: item.gmpSource,
+    gmpSourceUpdatedAt: toIso(item.gmpSourceUpdatedAt),
+    gmpRecordedAt: toIso(item.gmpRecordedAt),
+    subscriptionTimes: item.subscriptionTimes,
+    basisPrice: item.basisPrice,
+    priceBasis: item.priceBasis,
+    minimumInvestment: item.minimumInvestment,
+    gmpFreshness: item.gmpFreshness,
+    gmpPercentage: item.gmpPercentage,
+    estimatedListingPrice: item.estimatedListingPrice,
+    estimatedGainPerShare: item.estimatedGainPerShare,
+    estimatedGainPerLot: item.estimatedGainPerLot,
+    actualGainPerShare: item.actualGainPerShare,
+    actualGainPerLot: item.actualGainPerLot,
+    actualGainPercentage: item.actualGainPercentage,
+  };
 }
 
 export interface IpoGmpHistoryEntry {
@@ -82,71 +223,110 @@ export interface IpoDetail extends IpoListItem {
   issueSize: number | null;
   faceValue: number | null;
   allotmentDate: Date | null;
-  estimatedGainPerShare: number | null;
-  gmpSource: string | null;
-  gmpUpdatedTime: Date | null;
   gmpHistory: IpoGmpHistoryEntry[];
   latestSubscription: IpoSubscriptionEntry | null;
+  research: IpoResearchData;
   updatedAt: Date;
 }
 
+const emptyResearchData: IpoResearchData = {
+  minimumInvestment: null,
+  listingGain: null,
+  logoUrl: null,
+  prospectusUrl: null,
+  infoUrl: null,
+  nseInfoUrl: null,
+  bseInfoUrl: null,
+  about: null,
+  strengths: [],
+  risks: [],
+  mediaCoverageLinks: [],
+  schedule: [],
+  subscription: null,
+};
+
 export async function getIpoBySlug(slug: string): Promise<IpoDetail | null> {
-  const ipo = await prisma.ipo.findUnique({
-    where: { slug },
-    include: {
-      gmps: { orderBy: { recordedAt: "desc" }, take: 20 },
-      subscriptions: { orderBy: { subscriptionDate: "desc" }, take: 1 },
-    },
-  });
+  const cached = ipoDetailLiveCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
 
-  if (!ipo) return null;
+  try {
+    const ipo = await prisma.ipo.findUnique({
+      where: { slug },
+      include: {
+        gmps: { orderBy: { recordedAt: "desc" }, take: 30 },
+        subscriptions: { orderBy: { subscriptionDate: "desc" }, take: 1 },
+      },
+    });
 
-  const latestGmp = ipo.gmps[0];
-  const latestSubscription = ipo.subscriptions[0];
+    if (!ipo) return getLiveIpoBySlug(slug);
 
-  return {
-    ...toListItem(ipo),
-    symbol: ipo.symbol,
-    issueSize: toNumber(ipo.issueSize),
-    faceValue: toNumber(ipo.faceValue),
-    openDate: ipo.openDate,
-    closeDate: ipo.closeDate,
-    allotmentDate: ipo.allotmentDate,
-    estimatedGainPerShare: latestGmp ? toNumber(latestGmp.estimatedGainPerShare) : null,
-    gmpSource: latestGmp?.source ?? null,
-    gmpUpdatedTime: latestGmp?.sourceUpdatedAt ?? latestGmp?.recordedAt ?? null,
-    gmpHistory: ipo.gmps.map((gmp) => ({
-      gmp: toNumber(gmp.gmp) as number,
-      gmpPercentage: toNumber(gmp.gmpPercentage),
-      estimatedListingPrice: toNumber(gmp.estimatedListingPrice),
-      recordedAt: gmp.recordedAt,
-      source: gmp.source,
-      sourceUpdatedAt: gmp.sourceUpdatedAt,
-    })),
-    latestSubscription: latestSubscription
-      ? {
-          qib: toNumber(latestSubscription.qib),
-          nii: toNumber(latestSubscription.nii),
-          retail: toNumber(latestSubscription.retail),
-          employee: toNumber(latestSubscription.employee),
-          total: toNumber(latestSubscription.total),
-          subscriptionDate: latestSubscription.subscriptionDate,
-          source: latestSubscription.source,
-          sourceUpdatedAt: latestSubscription.sourceUpdatedAt,
-        }
-      : null,
-    updatedAt: ipo.updatedAt,
-  };
+    const latestSubscription = ipo.subscriptions[0];
+    const listItem = toListItem(ipo, new Date());
+
+    return {
+      ...listItem,
+      symbol: ipo.symbol,
+      faceValue: toNumber(ipo.faceValue),
+      allotmentDate: ipo.allotmentDate,
+      // Recomputed against the current price basis so history and the
+      // headline estimate always use the same issue price.
+      gmpHistory: ipo.gmps.map((gmp) => {
+        const value = toNumber(gmp.gmp) as number;
+        const figures = deriveIpoFigures(
+          { ...figureInputsOf(listItem), gmp: value, gmpSourceUpdatedAt: gmp.sourceUpdatedAt },
+          new Date(),
+        );
+        return {
+          gmp: value,
+          gmpPercentage: figures.gmpPercentage,
+          estimatedListingPrice: figures.estimatedListingPrice,
+          recordedAt: gmp.recordedAt,
+          source: gmp.source,
+          sourceUpdatedAt: gmp.sourceUpdatedAt,
+        };
+      }),
+      latestSubscription: latestSubscription
+        ? {
+            qib: toNumber(latestSubscription.qib),
+            nii: toNumber(latestSubscription.nii),
+            retail: toNumber(latestSubscription.retail),
+            employee: toNumber(latestSubscription.employee),
+            total: toNumber(latestSubscription.total),
+            subscriptionDate: latestSubscription.subscriptionDate,
+            source: latestSubscription.source,
+            sourceUpdatedAt: latestSubscription.sourceUpdatedAt,
+          }
+        : null,
+      research: (ipo.researchData as unknown as IpoResearchData | null) ?? emptyResearchData,
+      updatedAt: ipo.updatedAt,
+    };
+  } catch (error) {
+    console.warn("Falling back to live provider for IPO detail", error);
+    return getLiveIpoBySlug(slug);
+  }
 }
 
-type IpoWithLatestGmp = Awaited<
+type IpoWithLatestRecords = Awaited<
   ReturnType<typeof prisma.ipo.findMany<{ include: typeof listItemInclude }>>
 >[number];
 
-function toListItem(ipo: IpoWithLatestGmp): IpoListItem {
+function toListItem(ipo: IpoWithLatestRecords, now: Date): IpoListItem {
   const latestGmp = ipo.gmps[0];
+  const latestSubscription = ipo.subscriptions[0];
+  const subscription = pickLatestSubscription(
+    ipo.researchData as unknown as IpoResearchData | null,
+    latestSubscription
+      ? {
+          total: toNumber(latestSubscription.total),
+          source: latestSubscription.source,
+          updatedAt: latestSubscription.sourceUpdatedAt ?? latestSubscription.subscriptionDate,
+        }
+      : null,
+  );
 
-  return {
+  const base = {
     slug: ipo.slug,
     companyName: ipo.companyName,
     ipoType: ipo.ipoType,
@@ -155,23 +335,246 @@ function toListItem(ipo: IpoWithLatestGmp): IpoListItem {
     priceBandLow: toNumber(ipo.priceBandLow),
     priceBandHigh: toNumber(ipo.priceBandHigh),
     lotSize: ipo.lotSize,
+    issueSize: toNumber(ipo.issueSize),
+    subscriptionTimes: subscription.times,
+    subscriptionSource: subscription.source,
+    subscriptionUpdatedAt: subscription.updatedAt,
     issuePrice: toNumber(ipo.issuePrice),
     actualListingPrice: toNumber(ipo.actualListingPrice),
     openDate: ipo.openDate,
     closeDate: ipo.closeDate,
     listingDate: ipo.listingDate,
-    gmp: latestGmp ? (toNumber(latestGmp.gmp) as number) : null,
-    gmpPercentage: latestGmp ? toNumber(latestGmp.gmpPercentage) : null,
-    estimatedListingPrice: latestGmp ? toNumber(latestGmp.estimatedListingPrice) : null,
-    estimatedGainPerLot: latestGmp ? toNumber(latestGmp.estimatedGainPerLot) : null,
-    gmpUpdatedAt: latestGmp?.sourceUpdatedAt ?? latestGmp?.recordedAt ?? null,
+    gmp: latestGmp ? toNumber(latestGmp.gmp) : null,
+    gmpSource: latestGmp?.source ?? null,
+    gmpSourceUpdatedAt: latestGmp?.sourceUpdatedAt ?? null,
+    gmpRecordedAt: latestGmp?.recordedAt ?? null,
   };
+
+  return {
+    ...base,
+    ...deriveIpoFigures(
+      {
+        ...base,
+        sourceMinimumInvestment: getResearchNumber(ipo.researchData, "minimumInvestment"),
+      },
+      now,
+    ),
+  };
+}
+
+function figureInputsOf(item: IpoListItem) {
+  return {
+    issuePrice: item.issuePrice,
+    priceBandLow: item.priceBandLow,
+    priceBandHigh: item.priceBandHigh,
+    lotSize: item.lotSize,
+    gmp: item.gmp,
+    gmpSourceUpdatedAt: item.gmpSourceUpdatedAt,
+    actualListingPrice: item.actualListingPrice,
+    sourceMinimumInvestment: item.minimumInvestment,
+  };
+}
+
+/**
+ * The provider's subscription snapshot and the NSE bid-details row can
+ * both exist; show whichever the source stamped most recently.
+ */
+function pickLatestSubscription(
+  research: IpoResearchData | null,
+  stored: { total: number | null; source: string; updatedAt: Date | null } | null,
+): { times: number | null; source: string | null; updatedAt: Date | null } {
+  const feedTimes = toNumber(research?.subscription?.timesSubscribed);
+  const feed =
+    feedTimes !== null
+      ? {
+          times: feedTimes,
+          source: "IPO data feed",
+          updatedAt: research?.subscription?.updatedAt
+            ? new Date(research.subscription.updatedAt)
+            : null,
+        }
+      : null;
+  // A stored 0x is an artefact of NSE's empty SME response, never a real total.
+  const nse = stored && stored.total !== null && stored.total > 0
+    ? { times: stored.total, source: stored.source, updatedAt: stored.updatedAt }
+    : null;
+
+  if (feed && nse) {
+    return (nse.updatedAt?.getTime() ?? 0) > (feed.updatedAt?.getTime() ?? 0) ? nse : feed;
+  }
+  return feed ?? nse ?? { times: null, source: null, updatedAt: null };
+}
+
+function liveToListItem(ipo: NormalizedIpo, now: Date): IpoListItem {
+  const base = {
+    slug: ipo.slug,
+    companyName: ipo.companyName,
+    ipoType: ipo.ipoType,
+    exchange: ipo.exchange,
+    status: computeIpoStatus(ipo),
+    priceBandLow: ipo.priceBandLow ?? null,
+    priceBandHigh: ipo.priceBandHigh ?? null,
+    lotSize: ipo.lotSize ?? null,
+    issueSize: ipo.issueSize ?? null,
+    subscriptionTimes: ipo.research?.subscription?.timesSubscribed ?? null,
+    subscriptionSource: ipo.research?.subscription?.timesSubscribed != null ? "IPO data feed" : null,
+    subscriptionUpdatedAt: ipo.research?.subscription?.updatedAt
+      ? new Date(ipo.research.subscription.updatedAt)
+      : null,
+    issuePrice: ipo.issuePrice ?? null,
+    actualListingPrice: ipo.actualListingPrice ?? null,
+    openDate: ipo.openDate ? new Date(ipo.openDate) : null,
+    closeDate: ipo.closeDate ? new Date(ipo.closeDate) : null,
+    listingDate: ipo.listingDate ? new Date(ipo.listingDate) : null,
+    // GMP is deliberately not fetched per IPO for list views; that would be
+    // one extra API call per row on every cache miss.
+    gmp: null,
+    gmpSource: null,
+    gmpSourceUpdatedAt: null,
+    gmpRecordedAt: null,
+  };
+
+  return {
+    ...base,
+    ...deriveIpoFigures(
+      { ...base, sourceMinimumInvestment: ipo.research?.minimumInvestment ?? null },
+      now,
+    ),
+  };
+}
+
+async function fetchLiveIpoRecords(): Promise<NormalizedIpo[]> {
+  if (liveIpoRecordsCache && liveIpoRecordsCache.expiresAt > Date.now()) {
+    return liveIpoRecordsCache.value;
+  }
+  const records = await getIpoDataProvider().fetchIpos();
+  liveIpoRecordsCache = { expiresAt: Date.now() + LIVE_CACHE_TTL_MS, value: records };
+  return records;
+}
+
+async function loadLiveIpoListItems(): Promise<IpoListItemsResult> {
+  if (liveListCache && liveListCache.expiresAt > Date.now()) {
+    return liveListCache.value;
+  }
+
+  try {
+    const liveIpos = await fetchLiveIpoRecords();
+    const now = new Date();
+    const result: IpoListItemsResult = {
+      items: dropSupersededAnnouncements(liveIpos.map((ipo) => liveToListItem(ipo, now))),
+      liveFeedUnavailable: false,
+      liveFeedQuotaExceeded: false,
+      servedFromLiveFeed: true,
+      dataUpdatedAt: now,
+    };
+    liveListCache = { expiresAt: Date.now() + LIVE_CACHE_TTL_MS, value: result };
+    return result;
+  } catch (error) {
+    console.warn("Live IPO list fetch failed; returning no records", error);
+    const quotaExceeded =
+      error instanceof Error &&
+      (error.message.includes("ERR:QTAEXCEEDED") || error.message.includes("usage limit"));
+    const emptyResult: IpoListItemsResult = {
+      items: [],
+      liveFeedUnavailable: true,
+      liveFeedQuotaExceeded: quotaExceeded,
+      servedFromLiveFeed: true,
+      dataUpdatedAt: null,
+    };
+    liveListCache = { expiresAt: Date.now() + 30_000, value: emptyResult };
+    return emptyResult;
+  }
+}
+
+async function getLiveIpoBySlug(slug: string): Promise<IpoDetail | null> {
+  try {
+    const provider = getIpoDataProvider();
+    const liveItems = await fetchLiveIpoRecords();
+    const match = liveItems.find((ipo) => ipo.slug === slug);
+    if (!match) return null;
+
+    const gmp = await provider.fetchGmp(slug);
+    const now = new Date();
+    const listItem = liveToListItem(match, now);
+    const withGmp: IpoListItem = gmp
+      ? {
+          ...listItem,
+          gmp: gmp.gmp,
+          gmpSource: gmp.source,
+          gmpSourceUpdatedAt: gmp.sourceUpdatedAt ? new Date(gmp.sourceUpdatedAt) : null,
+          gmpRecordedAt: now,
+        }
+      : listItem;
+    const item: IpoListItem = { ...withGmp, ...deriveIpoFigures(figureInputsOf(withGmp), now) };
+
+    const result: IpoDetail = {
+      ...item,
+      symbol: match.symbol ?? null,
+      faceValue: match.faceValue ?? null,
+      allotmentDate: match.allotmentDate ? new Date(match.allotmentDate) : null,
+      gmpHistory: gmp
+        ? [{
+            gmp: gmp.gmp,
+            gmpPercentage: item.gmpPercentage,
+            estimatedListingPrice: item.estimatedListingPrice,
+            recordedAt: now,
+            source: gmp.source,
+            sourceUpdatedAt: item.gmpSourceUpdatedAt,
+          }]
+        : [],
+      latestSubscription: null,
+      research: match.research ?? emptyResearchData,
+      updatedAt: now,
+    };
+
+    ipoDetailLiveCache.set(slug, { expiresAt: Date.now() + LIVE_CACHE_TTL_MS, value: result });
+    return result;
+  } catch (error) {
+    console.warn("Live IPO detail fetch failed; returning null", error);
+    return null;
+  }
+}
+
+/** A closed issue still has no listing date this long after closing: not an IPO awaiting listing. */
+const STALE_CLOSED_DAYS = 10;
+
+/**
+ * Lists show listed IPOs for LISTED_HISTORY_DAYS after listing; older ones
+ * stay in the database and on their detail pages, just not in lists. Closed
+ * records that never got a listing date (rights issues, OFS, bonds) are
+ * left out too, instead of sitting in "awaiting listing" for ever.
+ */
+function withinListedHistory(items: IpoListItem[], now: Date): IpoListItem[] {
+  const listedCutoff = now.getTime() - LISTED_HISTORY_DAYS * 86_400_000;
+  const closedCutoff = now.getTime() - STALE_CLOSED_DAYS * 86_400_000;
+  return items.filter((item) => {
+    if (item.status === "LISTED") return !item.listingDate || item.listingDate.getTime() >= listedCutoff;
+    if (item.status === "CLOSED" && !item.listingDate) {
+      return !item.closeDate || item.closeDate.getTime() >= closedCutoff;
+    }
+    return true;
+  });
+}
+
+function toIso(value: Date | null): string | null {
+  return value ? value.toISOString() : null;
 }
 
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+function getResearchNumber(value: unknown, ...path: string[]): number | null {
+  let current = value;
+  for (const key of path) {
+    if (typeof current !== "object" || current === null || !(key in current)) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return toNumber(current);
 }
 
 function byDateAsc<T>(getter: (item: T) => Date | null) {

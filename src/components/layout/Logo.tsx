@@ -10,8 +10,8 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="ipx-logo-grad" x1="0" y1="0" x2="32" y2="32">
-          <stop offset="0" stopColor="#4f46e5" />
-          <stop offset="1" stopColor="#7c3aed" />
+          <stop offset="0" stopColor="#174a52" />
+          <stop offset="1" stopColor="#28727b" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="9" fill="url(#ipx-logo-grad)" />
@@ -37,7 +37,7 @@ export function Logo({ iconClassName = "h-8 w-8" }: { iconClassName?: string }) 
       <LogoMark className={iconClassName} />
       <span className="text-zinc-900">
         IPO
-        <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-[#174a52] to-[#36808a] bg-clip-text text-transparent">
           Nexa
         </span>
       </span>
