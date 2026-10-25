@@ -348,16 +348,22 @@ function CompareCheckbox({
   disabled: boolean;
   onToggle: (slug: string) => void;
 }) {
+  // The padded label gives a finger-sized (about 40px) tap area on phones
+  // around a slightly larger box, without changing the row layout.
   return (
-    <input
-      type="checkbox"
-      checked={checked}
-      disabled={disabled}
-      onChange={() => onToggle(row.slug)}
-      aria-label={`Select ${row.companyName} to compare`}
+    <label
+      className={`-m-2 flex shrink-0 p-2 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
       title={disabled ? `You can compare up to ${COMPARE_MAX} IPOs` : "Select to compare"}
-      className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-zinc-300 accent-[#174a52] disabled:cursor-not-allowed disabled:opacity-40"
-    />
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onToggle(row.slug)}
+        aria-label={`Select ${row.companyName} to compare`}
+        className="mt-0.5 h-5 w-5 cursor-pointer rounded border-zinc-300 accent-[#174a52] disabled:cursor-not-allowed disabled:opacity-40 lg:mt-1 lg:h-4 lg:w-4"
+      />
+    </label>
   );
 }
 
