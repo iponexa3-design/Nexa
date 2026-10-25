@@ -4,7 +4,7 @@
 #   bash deploy/rollback.sh            # the version deployed before the current one
 #   bash deploy/rollback.sh <commit>   # a specific version (see .data/deploy-history)
 #
-# Rebuilds that version and restarts with no downtime. Database migrations
+# Rebuilds that version and restarts (a few seconds of downtime). Database migrations
 # are NOT undone; restore a backup for that (docs/PROJECT.md).
 set -euo pipefail
 

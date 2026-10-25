@@ -33,8 +33,14 @@ ssh -i "$KEY" "ubuntu@$SERVER" "cd ~/iponexa && bash deploy/update.sh"
 
 echo "==> Checking the live site"
 host="${SITE#https://}"
+# The app restarts during the update; give it up to a minute to come back.
 for path in / /gmp-tracker /compare; do
-  code="$(curl -s -m 30 -o /dev/null --resolve "$host:443:$SERVER" -w '%{http_code}' "$SITE$path")"
+  code=000
+  for _ in $(seq 1 12); do
+    code="$(curl -s -m 30 -o /dev/null --resolve "$host:443:$SERVER" -w '%{http_code}' "$SITE$path" || true)"
+    [ "$code" = "200" ] && break
+    sleep 5
+  done
   echo "    $path -> $code"
   [ "$code" = "200" ] || { echo "Live check failed for $path. Roll back: ssh in and run bash deploy/rollback.sh" >&2; exit 1; }
 done

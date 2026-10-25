@@ -4,7 +4,7 @@
 #   bash deploy/update.sh
 #
 # Pulls the latest code, installs packages, applies database migrations,
-# builds, then restarts the app with no downtime.
+# builds, then restarts the app (a few seconds of downtime while it starts).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
