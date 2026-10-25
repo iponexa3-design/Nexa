@@ -46,15 +46,15 @@ No passwords or keys are stored in this document or in the repository.
 
 | Service | What it is used for | Where to manage it |
 |---|---|---|
-| **GoDaddy** | Domains `iponexa.com` (live) and `iponexa.in` (DNS still to be pointed) | dcc.godaddy.com → Domain Portfolio → DNS |
+| **GoDaddy** | Domains `iponexa.com` (main) and `iponexa.in` (redirects to iponexa.com) | dcc.godaddy.com → Domain Portfolio → DNS |
 | **DigitalOcean** | The server ("droplet" `iponexa`, Bangalore `blr1`, 2 GB, Ubuntu 24.04, IP **159.89.167.205**), firewall, weekly droplet backups | cloud.digitalocean.com |
 | **IPO Alert** (api.ipoalerts.in) | IPO list and GMP data. Paid plan: **5,000 API calls / month** | IPO Alert dashboard (usage, API keys) |
 | **NSE / BSE** | Free public daily price files ("bhavcopy") for listing prices; NSE bid details for subscription | No account |
-| **Let's Encrypt** | Free HTTPS certificate for iponexa.com and www, auto-renewing | Managed on the server by certbot |
+| **Let's Encrypt** | Free HTTPS certificates for iponexa.com, iponexa.in and their www names, auto-renewing | Managed on the server by certbot |
 | **Google Analytics 4** | Visitor statistics, Measurement ID **G-M69FL95KVH** | analytics.google.com |
 | **GitHub** | Private code repository `iponexa3-design/Nexa` (backup copy; the server does not pull from it) | github.com |
 
-**DNS (GoDaddy, iponexa.com):** `A @ → 159.89.167.205`, `CNAME www → iponexa.com`.
+**DNS (GoDaddy):** iponexa.com `A @ → 159.89.167.205`, `CNAME www → iponexa.com`; iponexa.in `A @ → 159.89.167.205` (and www). Nginx redirects iponexa.in, www.iponexa.in and www.iponexa.com to https://iponexa.com; Let's Encrypt certificates cover all four names.
 
 ## 3. Pages and features
 
@@ -270,10 +270,9 @@ Analytics uses Consent Mode: cookies are set only after a visitor clicks
 "Accept" in the cookie notice; without consent GA gets cookieless signals only.
 
 Scheduled jobs on the server (`crontab -l`): nightly database backup (21:00
-UTC) and, until iponexa.in points here, `deploy/auto-domain-redirect.sh`
-every 30 minutes (log: `~/backups/domain-redirect.log`). The redirect job
-obtains a certificate, redirects iponexa.in to https://iponexa.com and then
-removes itself.
+UTC). `deploy/auto-domain-redirect.sh` can be scheduled the same way for any
+future extra domain: it waits for the DNS change, obtains a certificate,
+redirects to https://iponexa.com and removes itself (used for iponexa.in).
 
 ## 10. Backups and recovery
 
@@ -340,11 +339,7 @@ case of losing the whole server. Copying backups off the server is an open item.
 
 ## 14. Open items
 
-- Point `iponexa.in` to the server (GoDaddy → iponexa.in → DNS Records:
-  edit `A @` from "Parked" to `159.89.167.205`). Everything after that is
-  automatic (HTTPS + redirect to iponexa.com within 30 minutes).
 - Check the domains are not listed for sale on Afternic.
-- Delete the DigitalOcean API token used for setup.
 - Create a fresh IPO Alert API key and put it on the server; correct
   `.data/ipoalerts-usage.json` to the real count from the IPO Alert dashboard.
 - Register the site in Google Search Console and submit
