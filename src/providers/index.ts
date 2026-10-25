@@ -1,6 +1,7 @@
 import type { IpoDataProvider } from "@/providers/ipo-data-provider";
 import { ManualJsonProvider } from "@/providers/manual-json-provider";
 import { HttpApiProvider } from "@/providers/http-api-provider";
+import { MonthlyApiBudget } from "@/utils/api-budget";
 
 /**
  * Selects the active IPO data provider from IPO_DATA_PROVIDER, so the
@@ -31,8 +32,12 @@ export function getIpoDataProvider(): IpoDataProvider {
           .map((status) => status.trim().toLowerCase())
           .filter(Boolean),
         pageLimit: Number(process.env.IPO_API_PAGE_LIMIT ?? 1),
-        closedLookbackDays: Number(process.env.IPO_API_CLOSED_LOOKBACK_DAYS ?? 21),
+        closedLookbackDays: Number(process.env.IPO_API_CLOSED_LOOKBACK_DAYS ?? 7),
         closedMaxPages: Number(process.env.IPO_API_CLOSED_MAX_PAGES ?? 40),
+        budget: new MonthlyApiBudget(
+          process.env.IPO_API_USAGE_FILE || ".data/ipoalerts-usage.json",
+          Number(process.env.IPO_API_MONTHLY_BUDGET ?? 0),
+        ),
       });
     }
 

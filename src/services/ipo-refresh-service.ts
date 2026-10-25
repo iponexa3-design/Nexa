@@ -11,23 +11,33 @@ import { fillListingPrices } from "@/services/listing-price-service";
 import type { NormalizedIpo } from "@/types/ipo";
 import { logger } from "@/utils/logger";
 
-/** GMP/subscription stay worth refreshing until this long after listing. */
+/** Subscription stays worth refreshing until this long after listing. */
 const MARKET_DATA_WINDOW_DAYS = 30;
 
 export interface RefreshSummary extends IngestSummary {
   provider: string;
   fetched: number;
   marketDataTargets: number;
+  gmpTargets: number;
   gmpSaved: number;
   subscriptionSaved: number;
   listingPricesFilled: number;
   failures: number;
+  /** Paid API requests used this month, when the provider counts them. */
+  apiUsage: { month: string; count: number; limit: number } | null;
+}
+
+export interface RefreshOptions {
+  /** Fetch GMP (paid calls, one per IPO). GMP changes once a day at the source. */
+  refreshGmp?: boolean;
+  /** Include IPOs that are announced but undated; they rarely change. */
+  includeAnnounced?: boolean;
 }
 
 /**
- * IPOs that still need GMP/subscription updates: dated issues that are
- * upcoming, open, awaiting listing, or listed within the last 30 days.
- * Announced IPOs (no dates yet) and long-listed ones are skipped to save quota.
+ * IPOs that still need subscription updates (free NSE data): dated issues
+ * that are upcoming, open, awaiting listing, or listed within the last 30
+ * days. Announced IPOs (no dates yet) and long-listed ones are skipped.
  */
 export function needsMarketData(ipo: NormalizedIpo, now: Date): boolean {
   if (!ipo.openDate) return false;
@@ -37,27 +47,41 @@ export function needsMarketData(ipo: NormalizedIpo, now: Date): boolean {
 }
 
 /**
- * Fetches every IPO the provider exposes, stores it, then refreshes GMP and
- * subscription for every IPO still in its market window. Existing rows and
- * history are never deleted, so a failed or partial run can't hide records.
+ * IPOs whose GMP is still shown: dated and not yet listed. Listed IPOs show
+ * listing results instead, so their GMP is never fetched (saves paid calls).
+ */
+export function needsGmp(ipo: NormalizedIpo, now: Date): boolean {
+  if (!ipo.openDate) return false;
+  if (!ipo.listingDate) return true;
+  const listing = Date.parse(ipo.listingDate);
+  return !Number.isFinite(listing) || listing > now.getTime();
+}
+
+/**
+ * Fetches every IPO the provider exposes, stores it, then refreshes GMP for
+ * IPOs not yet listed and subscription for IPOs in their market window.
+ * Existing rows and history are never deleted, so a failed or partial run
+ * can't hide records.
  */
 export async function refreshIpoData(
   provider: IpoDataProvider = getIpoDataProvider(),
   now: Date = new Date(),
+  { refreshGmp = true, includeAnnounced = true }: RefreshOptions = {},
 ): Promise<RefreshSummary> {
-  const ipos = await provider.fetchIpos();
+  const ipos = await provider.fetchIpos(includeAnnounced ? {} : { skipStatuses: ["announced"] });
   if (ipos.length === 0) {
     throw new Error("Provider returned no IPOs; existing database rows were preserved.");
   }
 
   const ingest = await ingestIpos(ipos);
   const targets = ipos.filter((ipo) => needsMarketData(ipo, now));
+  const gmpTargets = refreshGmp ? ipos.filter((ipo) => needsGmp(ipo, now)) : [];
 
   let gmpSaved = 0;
   let subscriptionSaved = 0;
   let failures = 0;
 
-  for (const ipo of targets) {
+  for (const ipo of gmpTargets) {
     try {
       const gmp = await provider.fetchGmp(ipo.slug);
       if (gmp && (await ingestGmp(gmp))) gmpSaved++;
@@ -68,7 +92,9 @@ export async function refreshIpoData(
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
 
+  for (const ipo of targets) {
     try {
       const subscription = await provider.fetchSubscription(ipo.slug, ipo.symbol);
       if (subscription && (await ingestSubscription(subscription))) subscriptionSaved++;
@@ -100,9 +126,11 @@ export async function refreshIpoData(
     fetched: ipos.length,
     ...ingest,
     marketDataTargets: targets.length,
+    gmpTargets: gmpTargets.length,
     gmpSaved,
     subscriptionSaved,
     listingPricesFilled,
     failures,
+    apiUsage: provider.apiUsage?.() ?? null,
   };
 }

@@ -118,8 +118,8 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
   );
 }
 
-/** The scheduled refresh runs several times a day; older data means it has stopped. */
-const STALE_AFTER_HOURS = 12;
+/** The scheduled refresh runs once a day; older than this means a run was missed. */
+const STALE_AFTER_HOURS = 30;
 
 function isStale(updatedAt: Date | null): boolean {
   return updatedAt !== null && Date.now() - updatedAt.getTime() > STALE_AFTER_HOURS * 3_600_000;

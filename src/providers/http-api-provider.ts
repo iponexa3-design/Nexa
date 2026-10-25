@@ -1,4 +1,5 @@
-import type { IpoDataProvider } from "@/providers/ipo-data-provider";
+import type { FetchIposOptions, IpoDataProvider } from "@/providers/ipo-data-provider";
+import type { MonthlyApiBudget } from "@/utils/api-budget";
 import type {
   NormalizedGmp,
   NormalizedIpo,
@@ -19,6 +20,8 @@ interface HttpApiProviderConfig {
   closedLookbackDays?: number;
   /** Safety cap on "closed" pages read per fetch (a one-time backfill raises it). */
   closedMaxPages?: number;
+  /** Counts every request and stops at the plan's monthly limit. */
+  budget?: MonthlyApiBudget;
 }
 
 interface IpoAlertsListResponse {
@@ -123,6 +126,7 @@ export class HttpApiProvider implements IpoDataProvider {
   private readonly pageLimit: number;
   private readonly closedLookbackDays: number;
   private readonly closedMaxPages: number;
+  private readonly budget?: MonthlyApiBudget;
 
   constructor({
     name,
@@ -133,6 +137,7 @@ export class HttpApiProvider implements IpoDataProvider {
     pageLimit = 1,
     closedLookbackDays = 21,
     closedMaxPages = DEFAULT_MAX_TAIL_PAGES,
+    budget,
   }: HttpApiProviderConfig) {
     this.name = name;
     this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -144,10 +149,18 @@ export class HttpApiProvider implements IpoDataProvider {
       Number.isFinite(closedLookbackDays) && closedLookbackDays > 0 ? closedLookbackDays : 21;
     this.closedMaxPages =
       Number.isInteger(closedMaxPages) && closedMaxPages > 0 ? closedMaxPages : DEFAULT_MAX_TAIL_PAGES;
+    this.budget = budget;
+  }
+
+  /** Requests made this month and the monthly limit (0 = unlimited). */
+  apiUsage() {
+    return this.budget?.usage() ?? null;
   }
 
   private async request<T>(pathname: string, params?: Record<string, string | number | boolean>): Promise<T> {
     return withRetry(async () => {
+      // Every attempt, retries included, counts against the paid plan.
+      this.budget?.consume();
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
@@ -214,7 +227,7 @@ export class HttpApiProvider implements IpoDataProvider {
     });
   }
 
-  async fetchIpos(): Promise<NormalizedIpo[]> {
+  async fetchIpos(options: FetchIposOptions = {}): Promise<NormalizedIpo[]> {
     // IPOAlerts caps results per page (1 free, 3 paid), so this pages through
     // each status list instead of returning all results in one request.
     // The free plan also rejects every status except "open"; paid plans can
@@ -235,7 +248,8 @@ export class HttpApiProvider implements IpoDataProvider {
     const fetchPage = (status: string, page: number) =>
       this.request<IpoAlertsListResponse>("/ipos", { status, page, limit: this.pageLimit });
 
-    for (const status of this.statuses) {
+    const skip = new Set(options.skipStatuses ?? []);
+    for (const status of this.statuses.filter((item) => !skip.has(item))) {
       try {
         if (TAIL_STATUSES.has(status)) {
           // "closed" holds every past issue, oldest first, so the newest

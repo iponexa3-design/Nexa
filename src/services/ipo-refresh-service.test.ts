@@ -11,7 +11,7 @@ vi.mock("@/services/listing-price-service", () => ({
 }));
 vi.mock("@/providers", () => ({ getIpoDataProvider: vi.fn() }));
 
-import { needsMarketData, refreshIpoData } from "@/services/ipo-refresh-service";
+import { needsGmp, needsMarketData, refreshIpoData } from "@/services/ipo-refresh-service";
 import type { IpoDataProvider } from "@/providers/ipo-data-provider";
 import type { NormalizedIpo } from "@/types/ipo";
 
@@ -82,5 +82,26 @@ describe("refreshIpoData", () => {
       fetchSubscription: async () => null,
     };
     await expect(refreshIpoData(provider, NOW)).rejects.toThrow("no IPOs");
+  });
+});
+
+describe("needsGmp", () => {
+  it("fetches GMP only for dated IPOs that have not listed yet", () => {
+    expect(needsGmp(ipo("upcoming", { openDate: "2026-10-28" }), NOW)).toBe(true);
+    expect(needsGmp(ipo("awaiting", { openDate: "2026-10-21", listingDate: "2026-10-28" }), NOW)).toBe(true);
+    expect(needsGmp(ipo("listed", { openDate: "2026-10-15", listingDate: "2026-10-23" }), NOW)).toBe(false);
+    expect(needsGmp(ipo("announced", {}), NOW)).toBe(false);
+  });
+
+  it("skips GMP and announced IPOs when asked, to save paid calls", async () => {
+    const fetchIpos = vi.fn(async () => [ipo("a", { openDate: "2026-10-27" })]);
+    const fetchGmp = vi.fn(async () => null);
+    const provider: IpoDataProvider = { name: "test", fetchIpos, fetchGmp, fetchSubscription: async () => null };
+
+    const summary = await refreshIpoData(provider, NOW, { refreshGmp: false, includeAnnounced: false });
+
+    expect(fetchIpos).toHaveBeenCalledWith({ skipStatuses: ["announced"] });
+    expect(fetchGmp).not.toHaveBeenCalled();
+    expect(summary.gmpTargets).toBe(0);
   });
 });
