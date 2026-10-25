@@ -46,15 +46,15 @@ No passwords or keys are stored in this document or in the repository.
 
 | Service | What it is used for | Where to manage it |
 |---|---|---|
-| **GoDaddy** | Domains `iponexa.com` (live) and `iponexa.in` (DNS still to be pointed) | dcc.godaddy.com → Domain Portfolio → DNS |
+| **GoDaddy** | Domains `iponexa.com` (main) and `iponexa.in` (redirects to iponexa.com) | dcc.godaddy.com → Domain Portfolio → DNS |
 | **DigitalOcean** | The server ("droplet" `iponexa`, Bangalore `blr1`, 2 GB, Ubuntu 24.04, IP **159.89.167.205**), firewall, weekly droplet backups | cloud.digitalocean.com |
 | **IPO Alert** (api.ipoalerts.in) | IPO list and GMP data. Paid plan: **5,000 API calls / month** | IPO Alert dashboard (usage, API keys) |
 | **NSE / BSE** | Free public daily price files ("bhavcopy") for listing prices; NSE bid details for subscription | No account |
-| **Let's Encrypt** | Free HTTPS certificate for iponexa.com and www, auto-renewing | Managed on the server by certbot |
+| **Let's Encrypt** | Free HTTPS certificates for iponexa.com, iponexa.in and their www names, auto-renewing | Managed on the server by certbot |
 | **Google Analytics 4** | Visitor statistics, Measurement ID **G-M69FL95KVH** | analytics.google.com |
 | **GitHub** | Private code repository `iponexa3-design/Nexa` (backup copy; the server does not pull from it) | github.com |
 
-**DNS (GoDaddy, iponexa.com):** `A @ → 159.89.167.205`, `CNAME www → iponexa.com`.
+**DNS (GoDaddy):** iponexa.com `A @ → 159.89.167.205`, `CNAME www → iponexa.com`; iponexa.in `A @ → 159.89.167.205` (and www). Nginx redirects iponexa.in, www.iponexa.in and www.iponexa.com to https://iponexa.com; Let's Encrypt certificates cover all four names.
 
 ## 3. Pages and features
 
@@ -65,6 +65,8 @@ No passwords or keys are stored in this document or in the repository.
 | Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view |
 | Compare IPO | `/compare?ipos=a,b,c` | 2 or 3 IPOs side by side (issue details, GMP estimate, actual listing) |
 | IPO detail | `/ipo/<slug>` | Issue details, dates, timeline, GMP and estimate (not listed yet), subscription, actual listing performance (listed), strengths/risks, documents |
+| Privacy policy | `/privacy` | What is collected (Google Analytics only after cookie consent, server logs), linked from the footer and the cookie notice |
+| Sitemap / robots | `/sitemap.xml`, `/robots.txt` | All pages incl. every IPO detail page, for search engines (refreshed daily) |
 | Refresh endpoint | `/api/cron/refresh-ipos` | Protected trigger for a data refresh (`Authorization: Bearer <CRON_SECRET>`); not used by the current server, which has its own scheduler |
 
 Status colours: Open green, Upcoming blue, Awaiting listing violet, Listed amber.
@@ -264,6 +266,13 @@ Log in: `ssh -i ~/.ssh/iponexa_server ubuntu@159.89.167.205`, then `cd ~/iponexa
 
 Visitor statistics: Google Analytics → Reports → Realtime (live) and Reports →
 Engagement (daily). Ad blockers hide visits from browsers that use them.
+Analytics uses Consent Mode: cookies are set only after a visitor clicks
+"Accept" in the cookie notice; without consent GA gets cookieless signals only.
+
+Scheduled jobs on the server (`crontab -l`): nightly database backup (21:00
+UTC). `deploy/auto-domain-redirect.sh` can be scheduled the same way for any
+future extra domain: it waits for the DNS change, obtains a certificate,
+redirects to https://iponexa.com and removes itself (used for iponexa.in).
 
 ## 10. Backups and recovery
 
@@ -330,13 +339,10 @@ case of losing the whole server. Copying backups off the server is an open item.
 
 ## 14. Open items
 
-- Point `iponexa.in` to the server (GoDaddy: switch nameservers to GoDaddy,
-  `A @ → 159.89.167.205`), then add HTTPS and a redirect to iponexa.com.
 - Check the domains are not listed for sale on Afternic.
-- Delete the DigitalOcean API token used for setup.
 - Create a fresh IPO Alert API key and put it on the server; correct
   `.data/ipoalerts-usage.json` to the real count from the IPO Alert dashboard.
-- Add a privacy policy page; register the site in Google Search Console.
+- Register the site in Google Search Console and submit
+  `https://iponexa.com/sitemap.xml`. Have the privacy policy reviewed and
+  add a contact email to it.
 - Copy database backups off the server (e.g. DigitalOcean Spaces).
-- Detail page header for "awaiting listing" IPOs should read
-  "Closed <date> · lists <date>".

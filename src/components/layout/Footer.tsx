@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { siteConfig } from "@/lib/site-config";
 
 export function Footer() {
@@ -14,11 +15,16 @@ export function Footer() {
           investment advice or a recommendation to buy, sell, or apply for any
           IPO. Please make your own independent decisions.
         </div>
-        <p>
-          &copy; {new Date().getFullYear()}{" "}
-          <span className="font-semibold text-white">{siteConfig.name}</span>.
-          All rights reserved.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p>
+            &copy; {new Date().getFullYear()}{" "}
+            <span className="font-semibold text-white">{siteConfig.name}</span>.
+            All rights reserved.
+          </p>
+          <Link href="/privacy" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
+            Privacy policy
+          </Link>
+        </div>
       </div>
     </footer>
   );

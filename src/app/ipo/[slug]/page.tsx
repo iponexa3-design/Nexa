@@ -90,9 +90,7 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
           </div>
 
           <div className="relative mt-7 flex flex-wrap items-center justify-between gap-2 border-t border-white/15 pt-4 text-xs text-emerald-50/75">
-            <span>
-              {ipo.status === "OPEN" ? "Closes" : "IPO status"}: {ipo.closeDate ? formatDate(ipo.closeDate) : statusLabels[ipo.status]}
-            </span>
+            <span>{scheduleLine(ipo)}</span>
             <span>Data updated {formatDateTime(ipo.updatedAt)}</span>
           </div>
         </header>
@@ -365,6 +363,25 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
       </div>
     </div>
   );
+}
+
+/** The one schedule fact that matters for the IPO's current stage. */
+function scheduleLine(ipo: {
+  status: "UPCOMING" | "OPEN" | "CLOSED" | "LISTED";
+  openDate: Date | null;
+  closeDate: Date | null;
+  listingDate: Date | null;
+}): string {
+  switch (ipo.status) {
+    case "UPCOMING":
+      return ipo.openDate ? `Opens ${formatDate(ipo.openDate)}` : "Dates not announced yet";
+    case "OPEN":
+      return `Closes ${formatDate(ipo.closeDate)}`;
+    case "CLOSED":
+      return `Closed ${formatDate(ipo.closeDate)} · ${ipo.listingDate ? `lists ${formatDate(ipo.listingDate)}` : "listing date not announced"}`;
+    case "LISTED":
+      return `Listed ${formatDate(ipo.listingDate)}`;
+  }
 }
 
 function formatShares(value: number): string {
