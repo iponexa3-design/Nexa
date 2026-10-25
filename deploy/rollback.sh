@@ -7,7 +7,16 @@
 # Rebuilds that version and restarts with no downtime. Database migrations
 # are NOT undone; restore a backup for that (docs/PROJECT.md).
 set -euo pipefail
-cd "$(dirname "$0")/.."
+
+# Older versions may not contain this script, so run from a temporary copy:
+# resetting the code below must not delete the file bash is reading.
+if [ -z "${IPONEXA_ROLLBACK_APP_DIR:-}" ]; then
+  export IPONEXA_ROLLBACK_APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+  copy="$(mktemp)"
+  cp "$0" "$copy"
+  exec bash "$copy" "$@"
+fi
+cd "$IPONEXA_ROLLBACK_APP_DIR"
 
 HISTORY=.data/deploy-history
 TARGET="${1:-}"

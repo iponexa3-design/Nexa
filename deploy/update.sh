@@ -17,8 +17,13 @@ if ! grep -q "^IPO_API_KEY=." .env.local 2>/dev/null; then
   exit 1
 fi
 
-echo "==> Getting latest code"
-git pull --ff-only
+# Pull first, then restart as the freshly pulled version of this script, so
+# changes to the deployment steps take effect in the same deploy.
+if [ "${1:-}" != "--pulled" ]; then
+  echo "==> Getting latest code"
+  git pull --ff-only
+  exec bash deploy/update.sh --pulled
+fi
 
 echo "==> Installing packages"
 npm ci
