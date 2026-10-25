@@ -9,28 +9,39 @@ export function analyticsId(): string | null {
 }
 
 /**
- * Google Analytics 4 with Consent Mode: analytics cookies stay off until the
- * visitor accepts in the cookie notice (stored in localStorage). Without
- * consent GA receives only cookieless signals. Renders nothing unless
- * NEXT_PUBLIC_GA_ID is set.
+ * Google Consent Mode defaults, set before any Google script loads: analytics
+ * and ad cookies stay off until the visitor clicks "Accept" in the cookie
+ * notice (choice kept in localStorage). Without consent, Analytics gets only
+ * cookieless signals and AdSense shows non-personalised ads.
  */
+export function ConsentDefaults() {
+  return (
+    <Script id="google-consent-defaults" strategy="beforeInteractive">
+      {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+var consent = null;
+try { consent = localStorage.getItem('${ANALYTICS_CONSENT_KEY}'); } catch (e) {}
+var state = consent === 'granted' ? 'granted' : 'denied';
+gtag('consent', 'default', {
+  analytics_storage: state,
+  ad_storage: state,
+  ad_user_data: state,
+  ad_personalization: state
+});`}
+    </Script>
+  );
+}
+
+/** Google Analytics 4. Renders nothing unless NEXT_PUBLIC_GA_ID is set. */
 export function GoogleAnalytics() {
   const id = analyticsId();
   if (!id) return null;
 
   return (
     <>
-      <Script id="google-analytics-consent" strategy="afterInteractive">
+      <Script id="google-analytics" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-var consent = null;
-try { consent = localStorage.getItem('${ANALYTICS_CONSENT_KEY}'); } catch (e) {}
-gtag('consent', 'default', {
-  analytics_storage: consent === 'granted' ? 'granted' : 'denied',
-  ad_storage: 'denied',
-  ad_user_data: 'denied',
-  ad_personalization: 'denied'
-});
 gtag('js', new Date());
 gtag('config', '${id}');`}
       </Script>

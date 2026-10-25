@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How IPONexa handles visitor data, cookies and analytics.",
+  description: "How IPONexa handles visitor data, cookies, analytics and advertising.",
 };
 
 const LAST_UPDATED = "25 October 2026";
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
           <Section title="Summary">
             IPONexa is an information website about Indian IPOs. You can use it without an account,
             and we do not ask for your name, phone number, PAN or any financial details. We do not sell
-            or rent any data, and we do not show personalised advertising.
+            or rent any data. The site is free and is supported by advertising from Google AdSense.
           </Section>
 
           <Section title="What we collect">
@@ -44,14 +44,30 @@ export default function PrivacyPage() {
             </ul>
           </Section>
 
+          <Section title="Advertising">
+            We show ads through Google AdSense. Google and its partners may use cookies to serve ads based
+            on your visits to this and other websites, but only if you accept cookies in the notice shown
+            on your first visit. If you decline, Google shows non-personalised ads, which rely on the page
+            you are viewing rather than on a profile of you. You can manage or turn off ad personalisation at{" "}
+            <a href="https://adssettings.google.com" target="_blank" rel="noreferrer" className="font-semibold text-[#174a52] underline underline-offset-4">
+              Google Ad Settings
+            </a>
+            , and learn how Google uses data at{" "}
+            <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noreferrer" className="font-semibold text-[#174a52] underline underline-offset-4">
+              How Google uses information from sites that use its services
+            </a>
+            . Ads are provided by Google and are not recommendations from IPONexa.
+          </Section>
+
           <Section title="How we use it">
             Only to run, secure and improve the website: for example, to see which IPO pages are useful
-            and to detect technical problems. We do not use it to contact you or to build advertising
-            profiles.
+            and to detect technical problems. We do not use it to contact you, and we do not build
+            advertising profiles ourselves.
           </Section>
 
           <Section title="Third parties">
-            Visitor statistics are processed by Google (Google Analytics) under{" "}
+            Visitor statistics and advertising are processed by Google (Google Analytics and Google
+            AdSense) under{" "}
             <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="font-semibold text-[#174a52] underline underline-offset-4">
               Google&apos;s privacy policy
             </a>
@@ -60,7 +76,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="Your choices">
-            You can accept or decline analytics cookies in the notice shown on your first visit. To change
+            You can accept or decline analytics and advertising cookies in the notice shown on your first visit. To change
             your choice later, clear this site&apos;s data in your browser settings and the notice will
             appear again. You can also block cookies in your browser or use Google&apos;s{" "}
             <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noreferrer" className="font-semibold text-[#174a52] underline underline-offset-4">

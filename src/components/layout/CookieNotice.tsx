@@ -22,9 +22,10 @@ function subscribe(listener: () => void) {
 type Gtag = (...args: unknown[]) => void;
 
 /**
- * One-time notice asking whether analytics cookies may be used. The choice
- * is remembered in this browser; "Accept" turns Google Analytics cookies on
- * through Consent Mode. Hidden during server rendering.
+ * One-time notice asking whether analytics and advertising cookies may be
+ * used. The choice is remembered in this browser; "Accept" turns Google
+ * Analytics and AdSense cookies on through Consent Mode. Hidden during
+ * server rendering.
  */
 export function CookieNotice({ enabled }: { enabled: boolean }) {
   const choice = useSyncExternalStore(subscribe, readChoice, () => "server");
@@ -37,7 +38,12 @@ export function CookieNotice({ enabled }: { enabled: boolean }) {
       // Storage unavailable: the notice may show again next visit.
     }
     const gtag = (window as unknown as { gtag?: Gtag }).gtag;
-    gtag?.("consent", "update", { analytics_storage: value });
+    gtag?.("consent", "update", {
+      analytics_storage: value,
+      ad_storage: value,
+      ad_user_data: value,
+      ad_personalization: value,
+    });
     listeners.forEach((listener) => listener());
   };
 
@@ -48,8 +54,8 @@ export function CookieNotice({ enabled }: { enabled: boolean }) {
       className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-[#dce7e5] bg-white p-4 text-sm text-zinc-700 shadow-[0_18px_40px_rgba(18,58,65,0.22)] sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="leading-6">
-        We use Google Analytics cookies to understand how many people visit and which pages help them.
-        No ads, no selling of data.{" "}
+        We use cookies from Google Analytics (to count visits) and Google AdSense (to show ads that keep
+        IPONexa free). Accept to allow them; if you decline, ads are not personalised. We never sell your data.{" "}
         <Link href="/privacy" className="font-semibold text-[#174a52] underline underline-offset-4">
           Privacy policy
         </Link>
