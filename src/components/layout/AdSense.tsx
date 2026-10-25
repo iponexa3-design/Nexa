@@ -1,3 +1,5 @@
+import Script from "next/script";
+
 /** The AdSense publisher ID ("ca-pub-…"), or null when ads are not configured. */
 export function adsenseClient(): string | null {
   const id = process.env.NEXT_PUBLIC_ADSENSE_CLIENT?.trim();
@@ -6,17 +8,18 @@ export function adsenseClient(): string | null {
 
 /**
  * Google AdSense loader for Auto ads (placements are chosen in the AdSense
- * dashboard). React hoists this async script into <head>, where AdSense
- * looks for it during site review. Ad personalisation follows the visitor's
- * cookie choice through Google Consent Mode (see GoogleAnalytics/CookieNotice).
+ * dashboard). Loaded after hydration so the Consent Mode defaults at the top
+ * of <body> always run first; site ownership is verified through the
+ * "google-adsense-account" meta tag in the root layout metadata.
  */
 export function AdSense() {
   const client = adsenseClient();
   if (!client) return null;
   return (
-    <script
-      async
+    <Script
+      id="google-adsense"
       src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`}
+      strategy="afterInteractive"
       crossOrigin="anonymous"
     />
   );
