@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Hide the dev-only route indicator ("N" badge); compile and runtime
+  // errors are still shown during development.
+  devIndicators: false,
 };
 
 export default nextConfig;

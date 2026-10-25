@@ -1,4 +1,5 @@
 import { prisma } from "@/db/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import type { NormalizedGmp, NormalizedIpo, NormalizedSubscription } from "@/types/ipo";
 import {
   findDuplicateSlugs,
@@ -6,7 +7,7 @@ import {
   validateIpo,
   validateSubscription,
 } from "@/services/ipo-validation";
-import { calculateListingFigures } from "@/services/calculations";
+import { calculateListingFigures, resolvePriceBasis } from "@/services/calculations";
 import { computeIpoStatus } from "@/utils/ipo-status";
 import { logger } from "@/utils/logger";
 
@@ -74,9 +75,28 @@ export async function ingestGmp(gmp: NormalizedGmp): Promise<boolean> {
       return false;
     }
 
-    const priceBandHigh = ipo.priceBandHigh ? Number(ipo.priceBandHigh) : null;
+    const basis = resolvePriceBasis({
+      issuePrice: ipo.issuePrice ? Number(ipo.issuePrice) : null,
+      priceBandLow: ipo.priceBandLow ? Number(ipo.priceBandLow) : null,
+      priceBandHigh: ipo.priceBandHigh ? Number(ipo.priceBandHigh) : null,
+    });
+    const sourceUpdatedAt = gmp.sourceUpdatedAt ? new Date(gmp.sourceUpdatedAt) : null;
+    // Each refresh re-reads the same latest quote; store it once so the GMP
+    // history only grows when the source actually publishes a new value.
+    const latest = await prisma.gmp.findFirst({
+      where: { ipoId: ipo.id, source: gmp.source },
+      orderBy: { recordedAt: "desc" },
+    });
+    if (
+      latest &&
+      Number(latest.gmp) === gmp.gmp &&
+      (latest.sourceUpdatedAt?.getTime() ?? null) === (sourceUpdatedAt?.getTime() ?? null)
+    ) {
+      return false;
+    }
+
     const lotSize = ipo.lotSize ?? null;
-    const figures = calculateListingFigures(gmp.gmp, priceBandHigh, lotSize);
+    const figures = calculateListingFigures(gmp.gmp, basis?.price ?? null, lotSize);
 
     await prisma.gmp.create({
       data: {
@@ -87,7 +107,7 @@ export async function ingestGmp(gmp: NormalizedGmp): Promise<boolean> {
         estimatedGainPerShare: figures.estimatedGainPerShare,
         estimatedGainPerLot: figures.estimatedGainPerLot,
         source: gmp.source,
-        sourceUpdatedAt: gmp.sourceUpdatedAt ? new Date(gmp.sourceUpdatedAt) : null,
+        sourceUpdatedAt,
       },
     });
     return true;
@@ -163,8 +183,15 @@ function toIpoData(ipo: NormalizedIpo, status: ReturnType<typeof computeIpoStatu
     closeDate: ipo.closeDate ? new Date(ipo.closeDate) : null,
     allotmentDate: ipo.allotmentDate ? new Date(ipo.allotmentDate) : null,
     listingDate: ipo.listingDate ? new Date(ipo.listingDate) : null,
-    actualListingPrice: ipo.actualListingPrice ?? null,
+    // IPOAlerts never reports a listing price, so a missing value means
+    // "unknown", not "cleared": leave any stored (manually entered) price alone.
+    actualListingPrice: ipo.actualListingPrice ?? undefined,
     faceValue: ipo.faceValue ?? null,
-    issuePrice: ipo.issuePrice ?? null,
+    // A band-only feed record has no issue price; keep the final issue price
+    // learned from the exchange's listing-day file instead of clearing it.
+    issuePrice: ipo.issuePrice ?? undefined,
+    researchData: ipo.research
+      ? (ipo.research as unknown as Prisma.InputJsonValue)
+      : Prisma.JsonNull,
   };
 }

@@ -5,8 +5,10 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   nav: [
     { label: "Home", href: "/" },
-    { label: "Upcoming IPOs", href: "/upcoming-ipos" },
+    { label: "GMP Tracker", href: "/gmp-tracker" },
     { label: "Open IPOs", href: "/open-ipos" },
+    { label: "Upcoming IPOs", href: "/upcoming-ipos" },
     { label: "Recently Listed", href: "/recently-listed-ipos" },
+    { label: "Compare IPO", href: "/compare" },
   ],
 };

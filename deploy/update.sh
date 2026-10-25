@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Builds and (re)starts IPONexa. Use it for the first start and after every
+# code change:
+#   bash deploy/update.sh
+#
+# Pulls the latest code, installs packages, applies database migrations,
+# builds, then restarts the app with no downtime.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ "$(id -u)" -eq 0 ]; then
+  echo "Run this as the normal user (e.g. ubuntu), not with sudo." >&2
+  exit 1
+fi
+if ! grep -q "^IPO_API_KEY=." .env.local 2>/dev/null; then
+  echo "IPO_API_KEY is empty in .env.local; add it first (nano .env.local)." >&2
+  exit 1
+fi
+
+echo "==> Getting latest code"
+git pull --ff-only
+
+echo "==> Installing packages"
+npm ci
+
+echo "==> Preparing database"
+npx prisma generate
+npx prisma migrate deploy
+
+echo "==> Building"
+npm run build
+
+echo "==> Starting"
+pm2 startOrReload deploy/ecosystem.config.cjs --update-env
+pm2 save
+
+echo "==> Done. Check status with: pm2 status   |   logs: pm2 logs iponexa"

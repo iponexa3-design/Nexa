@@ -11,7 +11,10 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "fetch:ipos": "tsx src/jobs/fetch-ipo-data.ts",
-    "test": "vitest run"
+    "refresh:live": "tsx scripts/refresh-live-ipo-data.ts",
+    "test": "vitest run",
+    "listing:set": "tsx scripts/set-listing-price.ts",
+    "backfill": "tsx scripts/backfill-ipos.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
