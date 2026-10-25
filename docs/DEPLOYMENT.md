@@ -1,179 +1,122 @@
 # Putting IPONexa online
 
-This guide takes you from nothing to a live site, one step at a time. No
-server experience is needed: every command is meant to be copied and pasted.
-
-**What you will set up**
+IPONexa runs on one small server in India with Cloudflare in front of it.
+Most of the setup is automated from the project computer; the steps that
+need a person (accounts, payment, a domain) are marked **You**.
 
 | Piece | Service | Approx. cost |
 |---|---|---|
-| Server (runs the website, database and automatic data refresh) | AWS Lightsail, Mumbai, Ubuntu 24.04, 2 GB plan | about US$12 / month |
+| Server (website, database, automatic data refresh) | DigitalOcean droplet, Bangalore, 2 GB, Ubuntu 24.04 | about US$12 / month + backups |
 | Speed, security and HTTPS | Cloudflare, free plan | free |
 | Website address | a domain, e.g. `iponexa.in` | about ₹500–900 / year |
 
-Prices change; check the Lightsail pricing page when you sign up. Lightsail
-often runs a free trial on its smaller plans.
-
-**Time needed:** about 1–2 hours the first time.
-
-**Before you start:** the latest code must be on GitHub
-(`github.com/iponexa3-design/Nexa`), because the server downloads it from there.
+Prices change; check each provider when signing up.
 
 ---
 
-## Step 1 – Buy a domain
+## 1. Create the server
 
-Buy a domain from any registrar (GoDaddy, Hostinger, Namecheap, BigRock…).
-You only need the domain itself; skip any hosting or email add-ons.
+**You** (once, about 10 minutes):
 
-## Step 2 – Create the server on AWS Lightsail
+1. Sign up at <https://www.digitalocean.com> and add a card or PayPal.
+2. Left menu **API** → **Generate New Token** → name `iponexa`, expiration
+   **30 days**, scopes **Full Access** → **Generate Token**.
+3. Copy the token (starts with `dop_v1_`), paste it into Notepad and save it
+   as `C:\Users\regun\Downloads\digitalocean-token.txt`.
 
-1. Go to <https://lightsail.aws.amazon.com> and create an AWS account
-   (a card is required; you are billed monthly).
-2. Click **Create instance**.
-3. **Region:** choose **Mumbai (ap-south-1)**.
-4. **Platform:** Linux/Unix. **Blueprint:** *OS Only* → **Ubuntu 24.04 LTS**.
-5. **Plan:** the **2 GB RAM** plan.
-6. Name it `iponexa` and click **Create instance**. Wait until it shows *Running*.
-7. Open the instance → **Networking** tab:
-   - Click **Attach static IP** → create one. This IP address never changes;
-     write it down (e.g. `13.233.x.x`).
-   - Under **IPv4 Firewall**, make sure **HTTP (80)** and **HTTPS (443)** are
-     allowed (add them if missing). SSH (22) is already there.
-8. Open the **Snapshots** tab → turn on **Automatic snapshots** (daily backup
-   of the whole server, including the database; costs a little extra).
-
-## Step 3 – Connect to the server
-
-On the instance page, click **Connect using SSH**. A black terminal window
-opens in your browser. All the commands below are typed there.
-
-## Step 4 – Download the code onto the server
-
-The GitHub repository is private, so the server needs permission to read it.
-
-1. Create a key on the server (press Enter at every question):
-   ```bash
-   ssh-keygen -t ed25519 -C "iponexa-server"
-   cat ~/.ssh/id_ed25519.pub
-   ```
-2. Copy the line it prints (starts with `ssh-ed25519`).
-3. On GitHub, open the repository → **Settings** → **Deploy keys** →
-   **Add deploy key**. Title: `Lightsail server`. Paste the line.
-   Leave *Allow write access* **unticked**. Save.
-4. Back in the server terminal:
-   ```bash
-   cd ~
-   git clone git@github.com:iponexa3-design/Nexa.git iponexa
-   cd iponexa
-   ```
-   Type `yes` if it asks whether to trust github.com.
-
-## Step 5 – Install everything (one command)
-
-Replace `iponexa.in` with your domain:
+**Automated** (run from the project folder on this computer):
 
 ```bash
-sudo bash deploy/setup-server.sh iponexa.in
+node deploy/provision-digitalocean.mjs
 ```
 
-This takes 5–10 minutes. It installs Node.js, the PostgreSQL database, Nginx
-and PM2, creates the database with a random password, writes the settings
-file `.env.local`, turns on the firewall and sets the app to start again
-automatically if the server restarts.
+It creates, or reuses if they already exist: an SSH login key, the
+Bangalore droplet with weekly backups and an `ubuntu` admin user, and a
+firewall that allows only SSH, HTTP and HTTPS. It finishes by printing
+`SERVER_IP=…`.
 
-## Step 6 – Add your IPO Alert API key
+## 2. Install the site
 
 ```bash
-nano .env.local
+bash deploy/install-on-server.sh <SERVER_IP>
 ```
 
-Find the line `IPO_API_KEY=` and paste your key after the `=`.
-Save with **Ctrl + O**, **Enter**, then exit with **Ctrl + X**.
+This logs into the server with `~/.ssh/iponexa_server`, downloads the code
+from GitHub (`main`), runs `deploy/setup-server.sh` (Node.js, PostgreSQL,
+Nginx, PM2, firewall, settings), copies the IPO Alert key from the local
+`.env.local`, builds and starts the site, and loads the last 45 days of IPO
+data. The site is then live at `http://<SERVER_IP>`, and refreshes IPOs, GMP,
+subscription and listing prices by itself every 3 hours.
 
-> Generate a fresh key in the IPO Alert dashboard for the server. Never paste
-> keys into chats, emails or GitHub.
+## 3. Connect the domain (Cloudflare)
 
-## Step 7 – Build and start the website
+**You:**
+
+1. Buy a domain (Cloudflare Registrar, GoDaddy, Hostinger, Namecheap…).
+2. Create a free account at <https://dash.cloudflare.com> → **Add a site** →
+   your domain → **Free** plan. If the domain was bought elsewhere, replace its
+   nameservers at the registrar with the two Cloudflare shows.
+3. Cloudflare → **DNS** → **Records**: add type **A**, name **@**, value =
+   `SERVER_IP`, proxy **on**; and the same with name **www**.
+
+Then on the server, switch the settings from the IP to the domain:
 
 ```bash
+ssh -i ~/.ssh/iponexa_server ubuntu@<SERVER_IP>
+cd ~/iponexa
+sed -i 's|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=https://yourdomain.in|' .env.local
 bash deploy/update.sh
 ```
 
-Takes a few minutes. When it finishes, `pm2 status` should show `iponexa` as
-**online**. Then load the last 45 days of IPO history once:
+## 4. Turn on HTTPS
 
-```bash
-npm run backfill
-```
-
-From now on the server refreshes IPOs, GMP, subscription and listing prices
-by itself every 3 hours.
-
-## Step 8 – Connect the domain through Cloudflare
-
-1. Create a free account at <https://dash.cloudflare.com> → **Add a site** →
-   enter your domain → choose the **Free** plan.
-2. Cloudflare shows two **nameservers**. At your domain registrar, replace the
-   existing nameservers with these two. (This can take a few minutes to a few
-   hours to take effect; Cloudflare emails you when it is active.)
-3. In Cloudflare → **DNS** → **Records**, add:
-   - Type **A**, Name **@**, IPv4 address = your static IP, Proxy **on** (orange cloud)
-   - Type **A**, Name **www**, IPv4 address = your static IP, Proxy **on**
-
-## Step 9 – Turn on HTTPS
-
-1. In Cloudflare → **SSL/TLS** → **Origin Server** → **Create Certificate**.
-   Keep the defaults (15 years) and click **Create**.
-2. On the server, create the folder and the two files:
+1. Cloudflare → **SSL/TLS** → **Origin Server** → **Create Certificate**
+   (defaults, 15 years).
+2. On the server, save the two parts it shows:
    ```bash
    sudo mkdir -p /etc/ssl/cloudflare
-   sudo nano /etc/ssl/cloudflare/origin.pem
+   sudo nano /etc/ssl/cloudflare/origin.pem   # paste "Origin Certificate", Ctrl+O, Enter, Ctrl+X
+   sudo nano /etc/ssl/cloudflare/origin.key   # paste "Private Key", save the same way
+   sudo bash deploy/enable-https.sh yourdomain.in
    ```
-   Paste the **Origin Certificate**, save (Ctrl + O, Enter) and exit (Ctrl + X).
-   ```bash
-   sudo nano /etc/ssl/cloudflare/origin.key
-   ```
-   Paste the **Private Key**, save and exit.
-3. Switch the server to HTTPS:
-   ```bash
-   sudo bash deploy/enable-https.sh iponexa.in
-   ```
-4. In Cloudflare → **SSL/TLS** → **Overview**, set the mode to **Full (strict)**.
-5. In Cloudflare → **SSL/TLS** → **Edge Certificates**, turn on
-   **Always Use HTTPS**.
-
-Open `https://your-domain` in a browser: the site is live.
+3. Cloudflare → **SSL/TLS** → **Overview** → mode **Full (strict)**; then
+   **Edge Certificates** → turn on **Always Use HTTPS**.
 
 ---
 
 ## Everyday tasks
 
-| Task | Command (in the server terminal, inside `~/iponexa`) |
+Log in first: `ssh -i ~/.ssh/iponexa_server ubuntu@<SERVER_IP>`, then `cd ~/iponexa`.
+
+| Task | Command |
 |---|---|
-| Publish new code (after pushing to GitHub) | `bash deploy/update.sh` |
+| Publish new code (after it is merged into `main` on GitHub) | `bash deploy/update.sh` |
 | Is the site running? | `pm2 status` |
-| See recent logs and errors | `pm2 logs iponexa --lines 100` |
+| Recent logs and errors | `pm2 logs iponexa --lines 100` |
 | Restart the site | `pm2 restart iponexa` |
-| Refresh IPO data right now | `npm run refresh:live` |
+| Refresh IPO data now | `npm run refresh:live` |
 | Enter a listing price by hand | `npm run listing:set -- <slug> <price>` |
 
 ## If something goes wrong
 
-- **Site shows "502 Bad Gateway":** the app is not running. Run `pm2 status`,
-  then `pm2 logs iponexa --lines 100` to see why, and `bash deploy/update.sh`
-  to rebuild and restart.
-- **Cloudflare error 526 (invalid SSL certificate):** the origin certificate
-  files are missing or were pasted incorrectly. Repeat Step 9.
-- **Old data on the GMP Tracker** (a yellow "last refreshed" warning): check
-  `pm2 logs iponexa` for "Scheduled IPO refresh failed" messages; a common
-  cause is an expired or wrong `IPO_API_KEY` in `.env.local` (fix it, then run
-  `pm2 restart iponexa --update-env`).
-- **Server ran out of disk:** Lightsail → instance → *Storage*; old logs can be
-  cleared with `pm2 flush`.
+- **Site shows "502 Bad Gateway":** the app is not running. Check
+  `pm2 logs iponexa --lines 100`, then run `bash deploy/update.sh`.
+- **Cloudflare error 526:** the origin certificate files are missing or were
+  pasted incorrectly; repeat step 4.
+- **Yellow "last refreshed … hours ago" warning on the GMP Tracker:** look for
+  "Scheduled IPO refresh failed" in `pm2 logs iponexa`. A common cause is an
+  expired `IPO_API_KEY` in `.env.local`; fix it and run
+  `pm2 restart iponexa --update-env`.
+- **Disk filling up:** `pm2 flush` clears old logs.
 
-## Before launching publicly
+## Security notes
 
-- Check the IPO Alert terms (and any attribution they require) and the NSE/BSE
-  website terms for commercial use of the data shown on the site.
-- Keep Lightsail automatic snapshots on; they are your backup.
+- The DigitalOcean token expires after 30 days; that is intended. Create a new
+  one only if the server needs to be re-provisioned.
+- Generate a fresh IPO Alert key for production and never paste keys into
+  chats, emails or GitHub.
+- The GitHub repository is public: anyone can read the code (it contains no
+  secrets). Make it private under GitHub → Settings if preferred; the server
+  would then need a deploy key to download updates.
+- Before launching publicly, check the IPO Alert terms and the NSE/BSE website
+  terms for commercial use of the data shown on the site.
