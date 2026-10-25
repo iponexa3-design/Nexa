@@ -3,6 +3,8 @@
 #
 # Run from inside the cloned project folder:
 #   sudo bash deploy/setup-server.sh yourdomain.com
+# or, before a domain exists, with the server's IP address:
+#   sudo bash deploy/setup-server.sh 203.0.113.10
 #
 # Installs Node.js, PostgreSQL, Nginx and PM2, creates the database,
 # writes .env.local with production settings, opens the firewall and puts
@@ -13,6 +15,15 @@ DOMAIN="${1:?Usage: sudo bash deploy/setup-server.sh yourdomain.com}"
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_USER="${SUDO_USER:-ubuntu}"
 ENV_FILE="$APP_DIR/.env.local"
+
+# An IP address (no domain yet) is served over plain HTTP to any host name.
+if [[ "$DOMAIN" =~ ^[0-9]+(\.[0-9]+){3}$ ]]; then
+  SERVER_NAMES="_"
+  SITE_URL="http://$DOMAIN"
+else
+  SERVER_NAMES="$DOMAIN www.$DOMAIN"
+  SITE_URL="https://$DOMAIN"
+fi
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "Please run with sudo: sudo bash deploy/setup-server.sh $DOMAIN" >&2
@@ -79,7 +90,7 @@ if [ ! -f "$ENV_FILE" ]; then
   set_env IPO_API_PAGE_LIMIT "3"
   set_env IPO_REFRESH_SCHEDULER "on"
   set_env CRON_SECRET "$(openssl rand -hex 32)"
-  set_env NEXT_PUBLIC_SITE_URL "https://$DOMAIN"
+  set_env NEXT_PUBLIC_SITE_URL "$SITE_URL"
 elif [ -n "$NEW_DATABASE_URL" ]; then
   set_env DATABASE_URL "$NEW_DATABASE_URL"
 fi
@@ -96,7 +107,7 @@ ufw --force enable >/dev/null
 
 # --- Nginx: plain HTTP for now; deploy/enable-https.sh switches to HTTPS.
 echo "==> Configuring Nginx"
-sed "s/__DOMAIN__/$DOMAIN/g" "$APP_DIR/deploy/nginx-http.conf" > /etc/nginx/sites-available/iponexa
+sed "s/__SERVER_NAMES__/$SERVER_NAMES/g" "$APP_DIR/deploy/nginx-http.conf" > /etc/nginx/sites-available/iponexa
 ln -sf /etc/nginx/sites-available/iponexa /etc/nginx/sites-enabled/iponexa
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
