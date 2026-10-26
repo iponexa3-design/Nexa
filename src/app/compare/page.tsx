@@ -83,8 +83,9 @@ export default async function ComparePage(props: PageProps<"/compare">) {
                   defaultValue={chosen[index]?.slug ?? ""}
                   className="w-full rounded-xl border border-[#dce7e5] bg-white px-3 py-2 text-sm text-zinc-800 outline-none focus:border-[#4f8f93] focus:ring-2 focus:ring-[#cfe4e3]"
                 >
+                  {/* Optional slots keep this choice selectable to clear them. */}
                   <option value="" disabled={index < COMPARE_MIN}>
-                    {index < COMPARE_MIN ? "Select an IPO" : "None"}
+                    Select an IPO
                   </option>
                   {(Object.keys(groupLabels) as TrackerCategory[]).map((category) => {
                     const options = data.rows.filter((row) => row.category === category);

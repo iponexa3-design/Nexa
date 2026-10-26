@@ -21,9 +21,14 @@ export function Footer() {
             <span className="font-semibold text-white">{siteConfig.name}</span>.
             All rights reserved.
           </p>
-          <Link href="/privacy" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
-            Privacy policy
-          </Link>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
+            <Link href="/contact" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
+              Contact us
+            </Link>
+            <Link href="/privacy" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
+              Privacy policy
+            </Link>
+          </nav>
         </div>
       </div>
     </footer>
