@@ -121,3 +121,19 @@ function addDays(dateKey: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+/** IPO cards on the homepage; everything else is one click away in the GMP Tracker. */
+export const HOMEPAGE_IPO_LIMIT = 12;
+
+/**
+ * Shares `limit` places between lists in priority order: the first list takes
+ * as many as it has, the next gets what is left, and so on.
+ */
+export function takeInOrder<T>(lists: T[][], limit: number): T[][] {
+  let left = Math.max(0, limit);
+  return lists.map((list) => {
+    const taken = list.slice(0, left);
+    left -= taken.length;
+    return taken;
+  });
+}

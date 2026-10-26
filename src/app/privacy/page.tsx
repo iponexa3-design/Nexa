@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "How IPONexa handles visitor data, cookies, analytics and advertising.",
 };
 
-const LAST_UPDATED = "25 October 2026";
+const LAST_UPDATED = "26 October 2026";
 
 export default function PrivacyPage() {
   return (
@@ -36,6 +36,12 @@ export default function PrivacyPage() {
                 <strong>Server logs:</strong> like nearly every website, our server automatically records
                 technical details of each request (IP address, time, page requested, browser) to keep the
                 site secure and working. These logs are kept for a limited time and not used to identify you.
+              </li>
+              <li>
+                <strong>Messages you send us:</strong> if you use the{" "}
+                <Link href="/contact" className="font-semibold text-[#174a52] underline underline-offset-4">contact form</Link>,
+                we receive your name, email address and message by email and keep a copy on our server so we
+                can reply. We use them only to answer you and delete them when they are no longer needed.
               </li>
               <li>
                 <strong>Settings in your browser:</strong> preferences such as grid or list view and your

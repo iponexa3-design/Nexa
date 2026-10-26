@@ -5,6 +5,7 @@ import {
   resolvePriceBasis,
 } from "@/services/calculations";
 import {
+  searchTrackerRows,
   compareTrackerRows,
   deriveIpoFigures,
   dropSupersededAnnouncements,
@@ -290,5 +291,30 @@ describe("Listed-tab summary", () => {
     expect(listedWithin({ listingDate: "2026-09-01T00:00:00.000Z" }, now, 90)).toBe(true);
     expect(listedWithin({ listingDate: "2026-10-28T00:00:00.000Z" }, now, 30)).toBe(false);
     expect(listedWithin({ listingDate: null }, now, 30)).toBe(false);
+  });
+});
+
+describe("searchTrackerRows", () => {
+  const rows = [
+    { companyName: "Shree Tata Agro" },
+    { companyName: "Tata Capital Limited" },
+    { companyName: "Vikram Solar" },
+    { companyName: "Infotata Systems" },
+  ];
+
+  it("puts names with a word starting with the query first, keeping input order", () => {
+    expect(searchTrackerRows(rows, "tata", 8).map((row) => row.companyName)).toEqual([
+      "Shree Tata Agro",
+      "Tata Capital Limited",
+      "Infotata Systems",
+    ]);
+  });
+
+  it("ignores case and surrounding spaces, and respects the limit", () => {
+    expect(searchTrackerRows(rows, "  TATA ", 1).map((row) => row.companyName)).toEqual(["Shree Tata Agro"]);
+  });
+
+  it("returns nothing for an empty query", () => {
+    expect(searchTrackerRows(rows, "   ", 8)).toEqual([]);
   });
 });
