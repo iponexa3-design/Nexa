@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { EmptyState } from "@/components/ipo/IpoSection";
 import { IpoCard } from "@/components/ipo/IpoCard";
 import { RecentlyListedIpoCard } from "@/components/ipo/RecentlyListedIpoCard";
 import { useViewMode, ViewModeToggle } from "@/components/ipo/view-mode";
+import { usePageSearch } from "@/components/search/PageSearch";
 import { Figure, IpoTypeBadge, StatusBadge } from "@/components/gmp/indicators";
 import type { IpoListItem } from "@/services/ipo-query-service";
 import {
@@ -21,48 +23,82 @@ type Accent = "blue" | "emerald" | "amber" | "slate";
 /**
  * A set of IPOs shown as cards (grid) or compact rows (list), following the
  * visitor's remembered layout choice. Listed IPOs show listing results;
- * everything else shows pricing, dates and GMP.
+ * everything else shows pricing, dates and GMP. Filtered by the page search
+ * when the page has one; with `pageSize`, shows that many at first and a
+ * "Show more" button for the rest.
  */
 export function IpoCollection({
   items,
   listed = false,
   emptyMessage,
   accent = "blue",
+  pageSize,
 }: {
   items: IpoListItem[];
   listed?: boolean;
   emptyMessage: string;
   accent?: Accent;
+  pageSize?: number;
 }) {
   const [mode, setMode] = useViewMode();
+  const { query, matches } = usePageSearch();
+  const [limit, setLimit] = useState(pageSize ?? Infinity);
 
   if (items.length === 0) return <EmptyState accent={accent} message={emptyMessage} />;
+
+  const matching = items.filter((ipo) => matches(ipo.companyName));
+  if (matching.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-[#dce7e5] bg-white/70 px-5 py-4 text-sm text-zinc-600">
+        No IPOs in this section match &ldquo;{query}&rdquo;.
+      </p>
+    );
+  }
+  const shown = matching.slice(0, limit);
+  const remaining = matching.length - shown.length;
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs font-semibold text-zinc-500">
-          {items.length} {items.length === 1 ? "IPO" : "IPOs"}
+          {query
+            ? `${matching.length} of ${items.length} ${items.length === 1 ? "IPO" : "IPOs"} match`
+            : `${shown.length === items.length ? "" : `Showing ${shown.length} of `}${items.length} ${items.length === 1 ? "IPO" : "IPOs"}`}
         </p>
         <ViewModeToggle mode={mode} onChange={setMode} />
       </div>
 
       {mode === "grid" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((ipo) =>
+          {shown.map((ipo) =>
             listed ? <RecentlyListedIpoCard key={ipo.slug} ipo={ipo} /> : <IpoCard key={ipo.slug} ipo={ipo} />,
           )}
         </div>
       ) : (
         <ul className="overflow-hidden rounded-2xl border border-[#dce7e5] bg-white shadow-[0_4px_16px_rgba(23,74,82,0.045)]">
           <ListHeader listed={listed} />
-          {items.map((ipo) => (
+          {shown.map((ipo) => (
             <li key={ipo.slug} className="border-t border-zinc-100 first:border-t-0">
               {listed ? <ListedRow ipo={ipo} /> : <StandardRow ipo={ipo} />}
             </li>
           ))}
         </ul>
       )}
+
+      {remaining > 0 && pageSize ? (
+        <div className="mt-5 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setLimit(shown.length + pageSize)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#c6dddc] bg-white px-5 py-2.5 text-sm font-bold text-[#174a52] shadow-[0_4px_14px_rgba(23,74,82,0.06)] transition hover:bg-[#eef6f5]"
+          >
+            Show more ({remaining} more)
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

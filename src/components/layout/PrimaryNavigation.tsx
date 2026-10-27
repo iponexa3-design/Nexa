@@ -16,7 +16,7 @@ export function PrimaryNavigation({ items }: { items: NavigationItem[] }) {
     // rows above the content. Larger screens wrap as before.
     <nav
       aria-label="Main navigation"
-      className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-1 overflow-x-auto whitespace-nowrap px-4 text-sm font-semibold [scrollbar-width:none] sm:mx-0 sm:w-full sm:flex-wrap sm:overflow-visible sm:px-0 2xl:w-auto [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-1 overflow-x-auto whitespace-nowrap px-4 text-sm font-semibold [scrollbar-width:none] sm:mx-0 sm:w-full sm:flex-wrap sm:overflow-visible sm:px-0 xl:w-auto xl:flex-nowrap [&::-webkit-scrollbar]:hidden"
     >
       {items.map((item) => {
         const active = pathname === item.href;

@@ -1,4 +1,5 @@
 import { IpoCollection } from "@/components/ipo/IpoCollection";
+import { PageSearchBox, PageSearchProvider } from "@/components/search/PageSearch";
 import { getHomepageIpoGroups } from "@/services/ipo-query-service";
 
 type IpoListingCategory = "upcoming" | "open" | "recentlyListed";
@@ -63,14 +64,18 @@ export async function IpoListingPage({
           </div>
         ) : null}
 
-        <IpoCollection
-          items={items}
-          listed={category === "recentlyListed"}
-          accent={details.accent}
-          emptyMessage={groups.liveFeedUnavailable
-            ? "No saved IPO records are available for this section right now."
-            : details.emptyMessage}
-        />
+        <PageSearchProvider>
+          <PageSearchBox className="mb-5 max-w-md" />
+          <IpoCollection
+            items={items}
+            pageSize={12}
+            listed={category === "recentlyListed"}
+            accent={details.accent}
+            emptyMessage={groups.liveFeedUnavailable
+              ? "No saved IPO records are available for this section right now."
+              : details.emptyMessage}
+            />
+        </PageSearchProvider>
       </div>
     </div>
   );
