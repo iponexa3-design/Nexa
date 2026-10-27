@@ -1,10 +1,20 @@
-const currencyFormatter = new Intl.NumberFormat("en-IN", {
+// Whole rupees without decimals (₹4,035); amounts with paise always with two
+// (₹855.90, never ₹855.9), as GMP is often quoted in paise.
+const wholeRupeeFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
-  // GMP is often quoted in paise (e.g. 1.2 or 104.68); whole amounts stay clean.
-  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const paiseFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const currencyFormatter = {
+  format: (value: number) =>
+    (Math.abs(Math.round(value * 100) % 100) === 0 ? wholeRupeeFormatter : paiseFormatter).format(value),
+};
 
 // Pinned to IST so server-rendered and client-rendered text always match,
 // and IPO dates read the same for every visitor.

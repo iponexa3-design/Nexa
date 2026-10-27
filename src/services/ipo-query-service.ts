@@ -53,9 +53,9 @@ export interface HomepageIpoGroups {
   open: IpoListItem[];
   /** Subscription closed, listing still pending. */
   awaitingListing: IpoListItem[];
-  /** The 12 most recent listings shown on the homepage. */
+  /** Listings of the last 45 days, newest first. */
   recentlyListed: IpoListItem[];
-  /** All listed IPOs in our records (recentlyListed is capped). */
+  /** Number of listed IPOs (same as recentlyListed.length). */
   listedCount: number;
   /** Opens, closes and listings over the next 7 IST days. */
   weekCalendar: CalendarDay[];
@@ -149,8 +149,7 @@ export async function getHomepageIpoGroups(): Promise<HomepageIpoGroups> {
       .sort(byDateAsc((item) => item.listingDate)),
     recentlyListed: items
       .filter((item) => item.status === "LISTED")
-      .sort(byDateDesc((item) => item.listingDate))
-      .slice(0, 12),
+      .sort(byDateDesc((item) => item.listingDate)),
     listedCount: items.filter((item) => item.status === "LISTED").length,
     weekCalendar: buildWeekCalendar(items, now),
     liveFeedUnavailable,

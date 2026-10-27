@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWeekCalendar, summarizeListings, takeInOrder } from "@/services/homepage-insights";
+import { buildWeekCalendar, summarizeListings } from "@/services/homepage-insights";
 
 // 25 Oct 2026, 00:30 IST.
 const NOW = new Date("2026-10-24T19:00:00Z");
@@ -50,19 +50,5 @@ describe("summarizeListings", () => {
 
   it("has no average when nothing listed with a price", () => {
     expect(summarizeListings([], NOW)).toMatchObject({ count: 0, averageGainPercentage: null, results: [] });
-  });
-});
-
-describe("takeInOrder", () => {
-  it("fills the limit from the first lists and leaves later ones empty", () => {
-    expect(takeInOrder([[1, 2, 3], [4, 5], [6, 7, 8]], 4)).toEqual([[1, 2, 3], [4], []]);
-  });
-
-  it("returns everything when the lists fit", () => {
-    expect(takeInOrder([[1], [], [2, 3]], 12)).toEqual([[1], [], [2, 3]]);
-  });
-
-  it("returns empty lists for a zero limit", () => {
-    expect(takeInOrder([[1], [2]], 0)).toEqual([[], []]);
   });
 });

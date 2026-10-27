@@ -61,10 +61,10 @@ No passwords or keys are stored in this document or in the repository.
 
 | Page | Path | What it shows |
 |---|---|---|
-| Home | `/` | Hero with counts linking to tracker tabs, "This week in IPOs" calendar, at most 12 IPO cards (filled in order Open, Awaiting listing, Upcoming, Recently listed; grid or list view), then a "More IPOs (N)" button to the GMP Tracker |
-| Header search | every page | "Search IPOs" box: suggestions while typing (`/api/ipos/search?q=`, database only), Enter shows all matches in the GMP Tracker |
+| Home | `/` | Hero with counts linking to tracker tabs, "This week in IPOs" calendar, Open / Awaiting listing / Upcoming / Recently listed sections (grid or list view), each showing 12 IPOs with a "Show more" button for the next 12, and a search box that filters all of them |
+| Page search | Home, Open / Upcoming / Recently listed, Allotment Status | "Search IPOs on this page" box that filters the IPOs shown on that page as you type, with a link to search all IPOs in the GMP Tracker (which has its own search) |
 | GMP Tracker | `/gmp-tracker` | All IPOs in tabs (All, Open, Upcoming, Awaiting listing, Listed), search, Mainboard/SME filter, table or grid view, status colours, compare selection. Listed tab: listing results with a 30/45-day summary strip |
-| Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view |
+| Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view, 12 at a time with "Show more", page search |
 | Compare IPO | `/compare?ipos=a,b,c` | 2 or 3 IPOs side by side (issue details, GMP estimate, actual listing) |
 | Allotment Status | `/ipo-allotment-status` | Open, awaiting-listing and recently listed (10 days) IPOs with allotment date, stage (out / today / on date) and buttons to the registrar's official allotment page plus BSE / NSE; list of all major registrars and the exchange checks |
 | IPO detail | `/ipo/<slug>` | Issue details, dates (allotment date from the issue schedule), allotment status box with registrar link, timeline, GMP and estimate (not listed yet), subscription with a day-wise table (Day 1, 2, 3: QIB, NII, NII above/below Rs 10 lakh, retail, employees, shareholders, total; the last NSE snapshot of each day, recorded by the half-hourly update, so days before deployment or server downtime are missing), actual listing performance (listed), strengths/risks, documents |

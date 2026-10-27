@@ -2,7 +2,7 @@ import Link from "next/link";
 import { IpoSection } from "@/components/ipo/IpoSection";
 import { IpoCollection } from "@/components/ipo/IpoCollection";
 import { WeekCalendar } from "@/components/home/HomeInsights";
-import { HOMEPAGE_IPO_LIMIT, takeInOrder } from "@/services/homepage-insights";
+import { PageSearchBox, PageSearchProvider } from "@/components/search/PageSearch";
 import { getHomepageIpoGroups } from "@/services/ipo-query-service";
 
 // IPO status and GMP freshness change over time; re-read the database (never
@@ -24,14 +24,6 @@ export default async function Home() {
   // only shows issues with a schedule so it stays compact.
   const scheduledUpcoming = upcoming.filter((ipo) => ipo.openDate);
   const announcedCount = upcoming.length - scheduledUpcoming.length;
-  // At most 12 cards, filled in this order; the rest are in the GMP Tracker.
-  const [openShown, awaitingShown, upcomingShown, listedShown] = takeInOrder(
-    [open, awaitingListing, scheduledUpcoming, recentlyListed],
-    HOMEPAGE_IPO_LIMIT,
-  );
-  const shownCount = openShown.length + awaitingShown.length + upcomingShown.length + listedShown.length;
-  const trackerCount = open.length + upcoming.length + awaitingListing.length + listedCount;
-  const moreCount = trackerCount - shownCount;
   const stats = [
     { value: open.length, label: "Open", href: "/gmp-tracker?status=open" },
     { value: upcoming.length, label: "Upcoming", href: "/gmp-tracker?status=upcoming" },
@@ -97,34 +89,36 @@ export default async function Home() {
 
         <WeekCalendar days={weekCalendar} />
 
-        <IpoSection
-          title="Open IPOs"
-          description="Subscription is open now. GMP figures are unofficial and indicative."
-          accent="emerald"
-          icon={<PulseIcon />}
-        >
-          <IpoCollection items={openShown} accent="emerald" emptyMessage="No IPOs are open for subscription right now." />
-        </IpoSection>
+        <PageSearchProvider>
+          <PageSearchBox className="mb-8 max-w-md" />
 
-        {awaitingShown.length > 0 ? (
           <IpoSection
-            title="Awaiting Listing"
-            description="Subscription has closed; these IPOs list on the exchange soon."
-            accent="slate"
-            icon={<ClockIcon />}
+            title="Open IPOs"
+            description="Subscription is open now. GMP figures are unofficial and indicative."
+            accent="emerald"
+            icon={<PulseIcon />}
           >
-            <IpoCollection items={awaitingShown} accent="slate" emptyMessage="No IPOs are awaiting listing." />
+            <IpoCollection items={open} pageSize={SECTION_PAGE_SIZE} accent="emerald" emptyMessage="No IPOs are open for subscription right now." />
           </IpoSection>
-        ) : null}
 
-        {upcomingShown.length > 0 || scheduledUpcoming.length === 0 ? (
+          {awaitingListing.length > 0 ? (
+            <IpoSection
+              title="Awaiting Listing"
+              description="Subscription has closed; these IPOs list on the exchange soon."
+              accent="slate"
+              icon={<ClockIcon />}
+            >
+              <IpoCollection items={awaitingListing} pageSize={SECTION_PAGE_SIZE} accent="slate" emptyMessage="No IPOs are awaiting listing." />
+            </IpoSection>
+          ) : null}
+
           <IpoSection
             title="Upcoming IPOs"
             description="Scheduled issues that have not opened for subscription yet."
             accent="blue"
             icon={<CalendarIcon />}
           >
-            <IpoCollection items={upcomingShown} accent="blue" emptyMessage="No scheduled upcoming IPOs right now." />
+            <IpoCollection items={scheduledUpcoming} pageSize={SECTION_PAGE_SIZE} accent="blue" emptyMessage="No scheduled upcoming IPOs right now." />
             {announcedCount > 0 ? (
               <Link
                 href="/gmp-tracker?status=upcoming"
@@ -134,32 +128,16 @@ export default async function Home() {
               </Link>
             ) : null}
           </IpoSection>
-        ) : null}
 
-        {listedShown.length > 0 ? (
           <IpoSection
             title="Recently Listed IPOs"
             description="Actual listing-day price and gain versus issue price."
             accent="amber"
             icon={<ChartIcon />}
           >
-            <IpoCollection items={listedShown} listed accent="amber" emptyMessage="No recently listed IPOs yet." />
+            <IpoCollection items={recentlyListed} pageSize={SECTION_PAGE_SIZE} listed accent="amber" emptyMessage="No recently listed IPOs yet." />
           </IpoSection>
-        ) : null}
-
-        <div className="mb-10 flex flex-col items-center gap-2 rounded-[22px] border border-[#dce7e5] bg-white px-6 py-7 text-center shadow-[0_8px_24px_rgba(23,74,82,0.05)]">
-          <p className="text-sm text-zinc-600">
-            {moreCount > 0
-              ? `${moreCount} more ${moreCount === 1 ? "IPO is" : "IPOs are"} in the GMP Tracker, with GMP, estimates and listing results.`
-              : "See every IPO with GMP, estimates and listing results in the GMP Tracker."}
-          </p>
-          <Link
-            href="/gmp-tracker"
-            className="mt-1 inline-flex items-center justify-center rounded-xl bg-[#174a52] px-7 py-3 text-[15px] font-extrabold text-white shadow-[0_10px_24px_rgba(23,74,82,0.22)] transition hover:-translate-y-0.5 hover:bg-[#123a41] motion-reduce:transform-none"
-          >
-            {moreCount > 0 ? `More IPOs (${moreCount})` : "Open GMP Tracker"}
-          </Link>
-        </div>
+        </PageSearchProvider>
 
         <p className="text-xs leading-5 text-zinc-500">
           *Estimated gain per lot = latest GMP × shares per lot. Indicative only; excludes brokerage, taxes and charges.
@@ -168,6 +146,9 @@ export default async function Home() {
     </div>
   );
 }
+
+/** IPOs per homepage section before "Show more". */
+const SECTION_PAGE_SIZE = 12;
 
 // Both primary actions share one high-contrast style so they read as the
 // main things to do on the page.

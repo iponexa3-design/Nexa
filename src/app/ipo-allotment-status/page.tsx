@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AllotmentLinks, ExternalIcon, StageBadge } from "@/components/allotment/AllotmentLinks";
 import { IpoTypeBadge } from "@/components/gmp/indicators";
+import { PageSearchBox, PageSearchProvider, SearchItem, SearchNoMatches } from "@/components/search/PageSearch";
 import { EXCHANGE_ALLOTMENT, findRegistrar, REGISTRARS } from "@/services/allotment";
 import { getAllotmentData } from "@/services/ipo-query-service";
 import { formatDate } from "@/utils/format";
@@ -41,43 +42,48 @@ export default async function AllotmentStatusPage() {
               No IPOs are in the allotment stage right now. Use the registrar or exchange links below for older issues.
             </p>
           ) : (
-            <ul className="grid gap-4 md:grid-cols-2">
-              {ipos.map((ipo) => {
-                const registrar = findRegistrar(ipo.registrar);
-                return (
-                  <li
-                    key={ipo.slug}
-                    className="flex flex-col gap-4 rounded-[20px] border border-[#e0e8e6] bg-white p-5 shadow-[0_8px_24px_rgba(23,74,82,0.05)]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <Link href={`/ipo/${ipo.slug}`} className="text-base font-bold text-zinc-900 hover:text-[#174a52] hover:underline">
-                          {ipo.companyName}
-                        </Link>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                          <IpoTypeBadge ipoType={ipo.ipoType} />
-                          <span>{ipo.exchange}</span>
+            <PageSearchProvider>
+              <PageSearchBox className="mb-5 max-w-md" placeholder="Search IPOs on this page" />
+              <SearchNoMatches names={ipos.map((ipo) => ipo.companyName)} />
+              <ul className="grid gap-4 md:grid-cols-2">
+                {ipos.map((ipo) => {
+                  const registrar = findRegistrar(ipo.registrar);
+                  return (
+                    <SearchItem key={ipo.slug} name={ipo.companyName}>
+                      <li
+                        className="flex flex-col gap-4 rounded-[20px] border border-[#e0e8e6] bg-white p-5 shadow-[0_8px_24px_rgba(23,74,82,0.05)]"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <Link href={`/ipo/${ipo.slug}`} className="text-base font-bold text-zinc-900 hover:text-[#174a52] hover:underline">
+                              {ipo.companyName}
+                            </Link>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                              <IpoTypeBadge ipoType={ipo.ipoType} />
+                              <span>{ipo.exchange}</span>
+                            </div>
+                          </div>
+                          <StageBadge stage={ipo.stage} allotmentDate={ipo.allotmentDate} />
                         </div>
-                      </div>
-                      <StageBadge stage={ipo.stage} allotmentDate={ipo.allotmentDate} />
-                    </div>
 
-                    <dl className="grid grid-cols-3 gap-3 text-sm">
-                      <Fact label="Allotment" value={ipo.allotmentDate ? formatDate(ipo.allotmentDate) : "Not announced"} />
-                      <Fact label="Listing" value={ipo.listingDate ? formatDate(ipo.listingDate) : "Not announced"} />
-                      <Fact label="Registrar" value={registrar?.name ?? shortRegistrar(ipo.registrar) ?? "Not available"} />
-                    </dl>
+                        <dl className="grid grid-cols-3 gap-3 text-sm">
+                          <Fact label="Allotment" value={ipo.allotmentDate ? formatDate(ipo.allotmentDate) : "Not announced"} />
+                          <Fact label="Listing" value={ipo.listingDate ? formatDate(ipo.listingDate) : "Not announced"} />
+                          <Fact label="Registrar" value={registrar?.name ?? shortRegistrar(ipo.registrar) ?? "Not available"} />
+                        </dl>
 
-                    <div className="mt-auto">
-                      <AllotmentLinks registrar={ipo.registrar} exchange={ipo.exchange} ipoType={ipo.ipoType} />
-                      {ipo.stage === "pending" ? (
-                        <p className="mt-2 text-xs text-zinc-500">Allotment results are not out yet; the links work once they are.</p>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                        <div className="mt-auto">
+                          <AllotmentLinks registrar={ipo.registrar} exchange={ipo.exchange} ipoType={ipo.ipoType} />
+                          {ipo.stage === "pending" ? (
+                            <p className="mt-2 text-xs text-zinc-500">Allotment results are not out yet; the links work once they are.</p>
+                          ) : null}
+                        </div>
+                      </li>
+                    </SearchItem>
+                  );
+                })}
+              </ul>
+            </PageSearchProvider>
           )}
         </section>
 

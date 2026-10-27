@@ -249,27 +249,3 @@ function toTime(value: string | null): number | null {
   const time = new Date(value).getTime();
   return Number.isNaN(time) ? null : time;
 }
-
-/**
- * Quick-search matches for the header search box: names with a word starting
- * with the query come first, then names containing it anywhere. Within each
- * group the input order is kept (pass rows sorted by `compareTrackerRows`).
- */
-export function searchTrackerRows<T extends Pick<GmpTrackerRow, "companyName">>(
-  rows: T[],
-  query: string,
-  limit: number,
-): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return [];
-  const wordStart: T[] = [];
-  const anywhere: T[] = [];
-  for (const row of rows) {
-    const name = row.companyName.toLowerCase();
-    const at = name.indexOf(needle);
-    if (at < 0) continue;
-    const startsWord = name.split(/[\s.&()-]+/).some((word) => word.startsWith(needle));
-    (at === 0 || startsWord ? wordStart : anywhere).push(row);
-  }
-  return [...wordStart, ...anywhere].slice(0, limit);
-}
