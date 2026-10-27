@@ -20,7 +20,7 @@ export function computeIpoStatus(dates: {
   return "UPCOMING";
 }
 
-function toDateKey(value?: Date | string | null): string | null {
+export function toDateKey(value?: Date | string | null): string | null {
   if (!value) return null;
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
@@ -30,7 +30,7 @@ function toDateKey(value?: Date | string | null): string | null {
   return Number.isNaN(date.getTime()) ? null : getIndiaDateKey(date);
 }
 
-function getIndiaDateKey(date: Date): string {
+export function getIndiaDateKey(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",

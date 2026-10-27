@@ -141,13 +141,36 @@ export async function ingestSubscription(
       return false;
     }
 
+    // The same snapshot fetched again (NSE not updated since) is not stored
+    // twice; it only fills in categories an older save did not have.
+    if (subscription.sourceUpdatedAt) {
+      const duplicate = await prisma.subscription.findFirst({
+        where: { ipoId: ipo.id, source: subscription.source, sourceUpdatedAt: new Date(subscription.sourceUpdatedAt) },
+        select: { id: true, niiBig: true, niiSmall: true, shareholders: true },
+      });
+      if (duplicate) {
+        const missing = {
+          ...(duplicate.niiBig === null && subscription.niiBig != null ? { niiBig: subscription.niiBig } : {}),
+          ...(duplicate.niiSmall === null && subscription.niiSmall != null ? { niiSmall: subscription.niiSmall } : {}),
+          ...(duplicate.shareholders === null && subscription.shareholders != null ? { shareholders: subscription.shareholders } : {}),
+        };
+        if (Object.keys(missing).length > 0) {
+          await prisma.subscription.update({ where: { id: duplicate.id }, data: missing });
+        }
+        return false;
+      }
+    }
+
     await prisma.subscription.create({
       data: {
         ipoId: ipo.id,
         qib: subscription.qib,
         nii: subscription.nii,
+        niiBig: subscription.niiBig,
+        niiSmall: subscription.niiSmall,
         retail: subscription.retail,
         employee: subscription.employee,
+        shareholders: subscription.shareholders,
         total: subscription.total,
         subscriptionDate: subscription.subscriptionDate
           ? new Date(subscription.subscriptionDate)

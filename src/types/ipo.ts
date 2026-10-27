@@ -64,8 +64,13 @@ export interface NormalizedSubscription {
   ipoSlug: string;
   qib?: number | null;
   nii?: number | null;
+  /** NII bids above Rs 10 lakh. */
+  niiBig?: number | null;
+  /** NII bids of Rs 2-10 lakh. */
+  niiSmall?: number | null;
   retail?: number | null;
   employee?: number | null;
+  shareholders?: number | null;
   total?: number | null;
   subscriptionDate?: string | null;
   source: string;

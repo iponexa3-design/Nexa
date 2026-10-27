@@ -75,7 +75,7 @@ export function validateSubscription(
   if (!subscription.ipoSlug?.trim()) errors.push("ipoSlug is required");
   if (!subscription.source?.trim()) errors.push("source is required");
 
-  for (const field of ["qib", "nii", "retail", "employee", "total"] as const) {
+  for (const field of ["qib", "nii", "niiBig", "niiSmall", "retail", "employee", "shareholders", "total"] as const) {
     const value = subscription[field];
     if (isPresent(value) && (!Number.isFinite(value) || value! < 0)) {
       errors.push(`${field} must be a non-negative number`);

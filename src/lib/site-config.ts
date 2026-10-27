@@ -10,5 +10,6 @@ export const siteConfig = {
     { label: "Upcoming IPOs", href: "/upcoming-ipos" },
     { label: "Recently Listed", href: "/recently-listed-ipos" },
     { label: "Compare IPO", href: "/compare" },
+    { label: "Allotment Status", href: "/ipo-allotment-status" },
   ],
 };
