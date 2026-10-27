@@ -83,14 +83,33 @@ interface IpoAlertsGmpResponse {
   };
 }
 
-interface NseIpoBidDetailsResponse {
-  data?: Array<{
-    category?: string;
-    noOfTime?: string | number;
-    noOfSharesOffered?: string | number;
-    noOfsharesBid?: string | number;
-  }>;
+/**
+ * NSE issue information. `activeCat` holds the CONSOLIDATED bids of BSE and
+ * NSE (the official subscription figures); `bidDetails` only NSE's own
+ * bids, which understates every mainboard IPO and is not used.
+ */
+interface NseIpoDetailResponse {
+  /** NSE's own overall figure; the only one NSE publishes for SME issues. */
+  demandGraphALL?: { noOfTimesIssueSubscribed?: string | number } | null;
+  activeCat?: {
+    /** e.g. "Updated as on 27-Oct-2026 17:00:00" (IST). */
+    updateTime?: string;
+    dataList?: NseCategoryRow[];
+  } | null;
 }
+
+interface NseCategoryRow {
+  category?: string;
+  /** Times subscribed for the category. */
+  noOfTotalMeant?: string | number;
+}
+
+/** Subscription figures that combine BSE and NSE bids. */
+export const CONSOLIDATED_SUBSCRIPTION_SOURCE = "bse+nse";
+/** NSE's official overall figure for an SME issue (no category multiples published). */
+export const NSE_SME_TOTAL_SOURCE = "nse-sme-total";
+/** Sources that are the exchanges' own figures and always win over the IPO feed. */
+export const OFFICIAL_SUBSCRIPTION_SOURCES = new Set([CONSOLIDATED_SUBSCRIPTION_SOURCE, NSE_SME_TOTAL_SOURCE]);
 
 // Safety bounds so one refresh can never run away with quota. They are far
 // above real list sizes (a few pages each); hitting one is logged loudly.
@@ -325,6 +344,7 @@ export class HttpApiProvider implements IpoDataProvider {
   async fetchSubscription(
     ipoSlug: string,
     symbol?: string | null,
+    ipoType: "MAINBOARD" | "SME" = "MAINBOARD",
   ): Promise<NormalizedSubscription | null> {
     if (!symbol) return null;
 
@@ -333,9 +353,9 @@ export class HttpApiProvider implements IpoDataProvider {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
         try {
-          const query = new URLSearchParams({ symbol, series: "EQ" });
+          const query = new URLSearchParams({ symbol, series: ipoType === "SME" ? "SME" : "EQ" });
           const result = await fetch(
-            `https://www.nseindia.com/api/ipo-bid-details?${query.toString()}`,
+            `https://www.nseindia.com/api/ipo-detail?${query.toString()}`,
             {
               headers: {
                 Accept: "application/json, text/plain, */*",
@@ -349,38 +369,66 @@ export class HttpApiProvider implements IpoDataProvider {
           if (!result.ok) {
             throw new Error(`NSE subscription request failed with status ${result.status}`);
           }
-          return (await result.json()) as NseIpoBidDetailsResponse;
+          return (await result.json()) as NseIpoDetailResponse;
         } finally {
           clearTimeout(timeout);
         }
       });
 
-      const rows = response.data ?? [];
+      const fetchedAt = new Date().toISOString();
+      // NSE's own timestamp, so the site shows when the figures are from.
+      const sourceUpdatedAt = parseNseUpdateTime(response.activeCat?.updateTime) ?? fetchedAt;
+      const rows = response.activeCat?.dataList ?? [];
       const qib = findNseCategory(rows, /^Qualified Institutional Buyers/i);
       const nii = findNseCategory(rows, /^Non Institutional Investors$/i);
+      const niiBig = findNseCategory(rows, /^Non Institutional Investors\s*\(Bid amount of more than Ten Lakh/i);
+      const niiSmall = findNseCategory(rows, /^Non Institutional Investors\s*\(Bid amount of more than Two Lakh/i);
       const retail = findNseCategory(rows, /^Retail Individual Investors/i);
       const employee = findNseCategory(rows, /^Employees$/i);
+      const shareholders = findNseCategory(rows, /^Shareholders$/i);
       const total = findNseCategory(rows, /^Total$/i);
+
+      // SME issues: NSE publishes only the overall figure (shares offered
+      // per category are not given), so store that alone.
+      if (ipoType === "SME") {
+        const overall = parseNseRatio(response.demandGraphALL?.noOfTimesIssueSubscribed);
+        if (overall === null || overall <= 0) return null;
+        return {
+          ipoSlug,
+          qib: null,
+          nii: null,
+          niiBig: null,
+          niiSmall: null,
+          retail: null,
+          employee: null,
+          shareholders: null,
+          total: overall,
+          subscriptionDate: fetchedAt,
+          source: NSE_SME_TOTAL_SOURCE,
+          sourceUpdatedAt,
+        };
+      }
       if (!qib && !nii && !retail) return null;
 
       const ratios = {
-        qib: parseNseRatio(qib?.noOfTime),
-        nii: parseNseRatio(nii?.noOfTime),
-        retail: parseNseRatio(retail?.noOfTime),
-        employee: parseNseRatio(employee?.noOfTime),
-        total: parseNseRatio(total?.noOfTime),
+        qib: parseNseRatio(qib?.noOfTotalMeant),
+        nii: parseNseRatio(nii?.noOfTotalMeant),
+        niiBig: parseNseRatio(niiBig?.noOfTotalMeant),
+        niiSmall: parseNseRatio(niiSmall?.noOfTotalMeant),
+        retail: parseNseRatio(retail?.noOfTotalMeant),
+        employee: parseNseRatio(employee?.noOfTotalMeant),
+        shareholders: parseNseRatio(shareholders?.noOfTotalMeant),
+        total: parseNseRatio(total?.noOfTotalMeant),
       };
-      // NSE answers an SME symbol queried as series EQ with all-zero rows;
-      // that means "no data", not "nobody applied".
+      // All zero means "no data yet", not "nobody applied".
       if (!Object.values(ratios).some((value) => value !== null && value > 0)) return null;
 
-      const updatedAt = new Date().toISOString();
       return {
         ipoSlug,
         ...ratios,
-        subscriptionDate: updatedAt,
-        source: "nse",
-        sourceUpdatedAt: updatedAt,
+        subscriptionDate: fetchedAt,
+        source: CONSOLIDATED_SUBSCRIPTION_SOURCE,
+        sourceUpdatedAt,
       };
     } catch {
       return null;
@@ -388,10 +436,22 @@ export class HttpApiProvider implements IpoDataProvider {
   }
 }
 
-function findNseCategory(
-  rows: NonNullable<NseIpoBidDetailsResponse["data"]>,
-  category: RegExp,
-) {
+const MONTHS: Record<string, string> = {
+  JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
+  JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
+};
+
+/** "Updated as on 27-Oct-2026 17:00:09 hrs" (IST) as an ISO timestamp, or null. */
+export function parseNseUpdateTime(text: string | null | undefined): string | null {
+  const match = /(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(text ?? "");
+  const month = match ? MONTHS[match[2].toUpperCase()] : undefined;
+  if (!match || !month) return null;
+  const [, day, , year, hour, minute, second = "00"] = match;
+  const date = new Date(`${year}-${month}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}:${second}+05:30`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function findNseCategory(rows: NseCategoryRow[], category: RegExp) {
   return rows.find((row) => category.test(row.category?.trim() ?? ""));
 }
 

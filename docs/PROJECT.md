@@ -49,7 +49,7 @@ No passwords or keys are stored in this document or in the repository.
 | **GoDaddy** | Domains `iponexa.com` (main) and `iponexa.in` (redirects to iponexa.com) | dcc.godaddy.com → Domain Portfolio → DNS |
 | **DigitalOcean** | The server ("droplet" `iponexa`, Bangalore `blr1`, 2 GB, Ubuntu 24.04, IP **159.89.167.205**), firewall, weekly droplet backups | cloud.digitalocean.com |
 | **IPO Alert** (api.ipoalerts.in) | IPO list and GMP data. Paid plan: **5,000 API calls / month** | IPO Alert dashboard (usage, API keys) |
-| **NSE / BSE** | Free public daily price files ("bhavcopy") for listing prices; NSE bid details for subscription | No account |
+| **NSE / BSE** | Free public daily price files ("bhavcopy") for listing prices; NSE bid details for subscription; NSE issue information for each IPO's registrar | No account |
 | **Let's Encrypt** | Free HTTPS certificates for iponexa.com, iponexa.in and their www names, auto-renewing | Managed on the server by certbot |
 | **Google Analytics 4** | Visitor statistics, Measurement ID **G-M69FL95KVH** | analytics.google.com |
 | **Google AdSense** | Advertising income, publisher ID **ca-pub-8432429701323264** (Auto ads; placements chosen in the AdSense dashboard) | adsense.google.com |
@@ -61,11 +61,14 @@ No passwords or keys are stored in this document or in the repository.
 
 | Page | Path | What it shows |
 |---|---|---|
-| Home | `/` | Hero with counts linking to tracker tabs, "This week in IPOs" calendar, Open / Awaiting listing / Upcoming / Recently listed sections (grid or list view) |
+| Home | `/` | Hero with counts linking to tracker tabs, "This week in IPOs" calendar, at most 12 IPO cards (filled in order Open, Awaiting listing, Upcoming, Recently listed; grid or list view), then a "More IPOs (N)" button to the GMP Tracker |
+| Header search | every page | "Search IPOs" box: suggestions while typing (`/api/ipos/search?q=`, database only), Enter shows all matches in the GMP Tracker |
 | GMP Tracker | `/gmp-tracker` | All IPOs in tabs (All, Open, Upcoming, Awaiting listing, Listed), search, Mainboard/SME filter, table or grid view, status colours, compare selection. Listed tab: listing results with a 30/45-day summary strip |
 | Open / Upcoming / Recently listed | `/open-ipos`, `/upcoming-ipos`, `/recently-listed-ipos` | One category each, grid or list view |
 | Compare IPO | `/compare?ipos=a,b,c` | 2 or 3 IPOs side by side (issue details, GMP estimate, actual listing) |
-| IPO detail | `/ipo/<slug>` | Issue details, dates, timeline, GMP and estimate (not listed yet), subscription, actual listing performance (listed), strengths/risks, documents |
+| Allotment Status | `/ipo-allotment-status` | Open, awaiting-listing and recently listed (10 days) IPOs with allotment date, stage (out / today / on date) and buttons to the registrar's official allotment page plus BSE / NSE; list of all major registrars and the exchange checks |
+| IPO detail | `/ipo/<slug>` | Issue details, dates (allotment date from the issue schedule), allotment status box with registrar link, timeline, GMP and estimate (not listed yet), subscription with a day-wise table (Day 1, 2, 3: QIB, NII, NII above/below Rs 10 lakh, retail, employees, shareholders, total; the last NSE snapshot of each day, recorded by the half-hourly update, so days before deployment or server downtime are missing), actual listing performance (listed), strengths/risks, documents |
+| Contact Us | `/contact` (footer link) | Form: name, email, optional subject, message. Saved in the `contact_messages` table and emailed to iponexa3@gmail.com when SMTP is configured (Reply goes to the visitor). Spam trap field and 5 messages / hour per visitor |
 | Privacy policy | `/privacy` | What is collected (Google Analytics only after cookie consent, server logs), advertising (AdSense), linked from the footer and the cookie notice |
 | ads.txt | `/ads.txt` | Authorises Google AdSense to sell ads on the site (`google.com, pub-8432429701323264, DIRECT, f08c47fec0942fa0`) |
 | Sitemap / robots | `/sitemap.xml`, `/robots.txt` | All pages incl. every IPO detail page, for search engines (refreshed daily) |
@@ -82,11 +85,15 @@ Gains are green, losses red, missing values grey "—".
 |---|---|---|
 | IPO list, dates, price band, lot size, issue size, documents | IPO Alert `/ipos` (statuses open, upcoming, closed, listed, announced; 3 per page) | Paid calls |
 | GMP (daily figure) | IPO Alert `/ipos/<slug>/gmp` | 1 paid call per IPO |
-| Subscription (QIB / NII / retail) | NSE bid details + IPO Alert snapshot (newest wins) | Free |
+| Subscription (QIB / NII / retail) | NSE issue information `/api/ipo-detail`, table `activeCat` = **BSE + NSE combined** bids (the official figure; NSE's `bidDetails` / `ipo-bid-details` count only NSE bids and understate mainboard IPOs by about half, as does the IPO Alert snapshot). Updated every 30 min for open IPOs and stamped with NSE's "updated as on" time. Combined figures always win. SME issues on NSE: NSE's official overall figure (`demandGraphALL`, series `SME`; NSE publishes no category multiples for SME). SME issues listed only on BSE: no subscription figures (BSE's API blocks automated access) | Free |
 | Listing price + final issue price | NSE/BSE end-of-day bhavcopy files on the listing date | Free |
+| Registrar (for allotment links) | NSE issue information (`/api/ipo-detail`), looked up once per IPO during the daily refresh; SME IPOs listed only on BSE are not on NSE and show BSE's check instead | Free |
 
 ### 4.2 Daily refresh and the API budget
 
+- Separately, **subscription figures of open IPOs** are updated from NSE every
+  30 minutes, Monday to Friday 10:00–19:30 IST (free, no IPO Alert calls; a
+  figure NSE has not changed is not stored again).
 - The server refreshes **once a day at 20:00 IST** (after the exchanges publish
   listing prices and the day's GMP is in). Restarts never trigger extra runs;
   failed runs are retried at most 3 times that day.
@@ -162,6 +169,8 @@ On the server: `/home/ubuntu/iponexa/.env.local`.
 | `NEXT_PUBLIC_SITE_URL` | `https://iponexa.com` | Site address used in links (build time) |
 | `NEXT_PUBLIC_GA_ID` | `G-M69FL95KVH` | Google Analytics (build time) |
 | `NEXT_PUBLIC_ADSENSE_CLIENT` | `ca-pub-8432429701323264` | Google AdSense (build time); unset = no ads, no ads.txt entry needed |
+| `SMTP_USER` / `SMTP_PASS` | iponexa3@gmail.com / *Gmail app password* | Sends contact-form emails; unset = messages are only saved in the database |
+| `SMTP_HOST` / `SMTP_PORT` / `CONTACT_TO_EMAIL` | defaults `smtp.gmail.com` / `465` / `SMTP_USER` | Optional overrides for the mail server and recipient |
 
 `NEXT_PUBLIC_*` values are baked in at build time: run a deploy after changing them.
 Other settings take effect after `pm2 restart iponexa --update-env`.
@@ -188,7 +197,9 @@ npm run build               # production build
 ```
 
 Useful data commands: `npm run refresh:live` (one full refresh),
-`npm run backfill -- 45` (load the last N days), `npm run listing:set -- <slug> <price>`.
+`npm run backfill -- 45` (load the last N days), `npm run listing:set -- <slug> <price>`,
+`npm run registrars:fill` (look up registrars on NSE now instead of at the next refresh).
+`npm run subscriptions:refresh -- 30` (re-fetch combined subscription figures for IPOs of the last N days).
 
 ## 8. Deploying changes
 
@@ -355,6 +366,8 @@ case of losing the whole server. Copying backups off the server is an open item.
 - Create a fresh IPO Alert API key and put it on the server; correct
   `.data/ipoalerts-usage.json` to the real count from the IPO Alert dashboard.
 - Register the site in Google Search Console and submit
-  `https://iponexa.com/sitemap.xml`. Have the privacy policy reviewed and
-  add a contact email to it.
+  `https://iponexa.com/sitemap.xml`. Have the privacy policy reviewed.
+- Create a Gmail app password for iponexa3@gmail.com and set `SMTP_USER` /
+  `SMTP_PASS` on the server so contact messages are emailed (until then they
+  are saved in `contact_messages` only).
 - Copy database backups off the server (e.g. DigitalOcean Spaces).

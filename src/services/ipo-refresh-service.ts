@@ -8,6 +8,7 @@ import {
 } from "@/services/ipo-ingest-service";
 import { clearIpoLiveCache } from "@/services/ipo-query-service";
 import { fillListingPrices } from "@/services/listing-price-service";
+import { fillRegistrars } from "@/services/registrar-service";
 import type { NormalizedIpo } from "@/types/ipo";
 import { logger } from "@/utils/logger";
 
@@ -22,6 +23,7 @@ export interface RefreshSummary extends IngestSummary {
   gmpSaved: number;
   subscriptionSaved: number;
   listingPricesFilled: number;
+  registrarsFilled: number;
   failures: number;
   /** Paid API requests used this month, when the provider counts them. */
   apiUsage: { month: string; count: number; limit: number } | null;
@@ -96,7 +98,7 @@ export async function refreshIpoData(
 
   for (const ipo of targets) {
     try {
-      const subscription = await provider.fetchSubscription(ipo.slug, ipo.symbol);
+      const subscription = await provider.fetchSubscription(ipo.slug, ipo.symbol, ipo.ipoType);
       if (subscription && (await ingestSubscription(subscription))) subscriptionSaved++;
     } catch (error) {
       failures++;
@@ -119,6 +121,17 @@ export async function refreshIpoData(
     });
   }
 
+  // Registrars (for the allotment page) come from NSE issue information.
+  let registrarsFilled = 0;
+  try {
+    registrarsFilled = (await fillRegistrars(now)).filled;
+  } catch (error) {
+    failures++;
+    logger.error("Failed to fill registrars", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   clearIpoLiveCache();
 
   return {
@@ -130,6 +143,7 @@ export async function refreshIpoData(
     gmpSaved,
     subscriptionSaved,
     listingPricesFilled,
+    registrarsFilled,
     failures,
     apiUsage: provider.apiUsage?.() ?? null,
   };

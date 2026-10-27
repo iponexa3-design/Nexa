@@ -14,6 +14,8 @@
     "refresh:live": "tsx scripts/refresh-live-ipo-data.ts",
     "test": "vitest run",
     "listing:set": "tsx scripts/set-listing-price.ts",
+    "registrars:fill": "tsx scripts/fill-registrars.ts",
+    "subscriptions:refresh": "tsx scripts/refresh-subscriptions.ts",
     "backfill": "tsx scripts/backfill-ipos.ts"
   },
   "dependencies": {

@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { prisma } from "@/db/prisma";
 import { getIpoDataProvider } from "@/providers";
-import { computeIpoStatus, type ComputedIpoStatus } from "@/utils/ipo-status";
+import { OFFICIAL_SUBSCRIPTION_SOURCES } from "@/providers/http-api-provider";
+import { computeIpoStatus, toDateKey, type ComputedIpoStatus } from "@/utils/ipo-status";
 import {
   compareTrackerRows,
   deriveIpoFigures,
@@ -12,6 +13,8 @@ import {
   type IpoDerivedFigures,
 } from "@/services/gmp-tracker";
 import { buildWeekCalendar, type CalendarDay } from "@/services/homepage-insights";
+import { allotmentDateFromSchedule, selectAllotmentIpos, type AllotmentStage } from "@/services/allotment";
+import { buildDaywiseSubscription, type DaywiseSubscriptionRow } from "@/services/subscription-history";
 import type { IpoResearchData, NormalizedIpo } from "@/types/ipo";
 import type { IpoType } from "@/generated/prisma/enums";
 
@@ -33,6 +36,10 @@ export interface IpoListItem extends IpoDerivedFigures {
   openDate: Date | null;
   closeDate: Date | null;
   listingDate: Date | null;
+  /** Basis-of-allotment date from the issue schedule (YYYY-MM-DD, IST). */
+  allotmentDate: string | null;
+  /** Registrar to the issue, as NSE names it. */
+  registrar: string | null;
   gmp: number | null;
   gmpSource: string | null;
   /** When the source quoted the GMP; null when the source gave no timestamp. */
@@ -151,6 +158,17 @@ export async function getHomepageIpoGroups(): Promise<HomepageIpoGroups> {
   };
 }
 
+export interface AllotmentPageData {
+  ipos: Array<IpoListItem & { stage: AllotmentStage }>;
+  liveFeedUnavailable: boolean;
+}
+
+/** IPOs whose allotment is out, due today or coming up, for the allotment status page. */
+export async function getAllotmentData(now: Date = new Date()): Promise<AllotmentPageData> {
+  const { items, liveFeedUnavailable } = await loadIpoListItems();
+  return { ipos: selectAllotmentIpos(items, now), liveFeedUnavailable };
+}
+
 /** Every available IPO (upcoming, open, awaiting listing and listed) for the GMP tracker. */
 export async function getGmpTrackerData(): Promise<GmpTrackerData> {
   const result = await loadIpoListItems();
@@ -210,8 +228,11 @@ export interface IpoGmpHistoryEntry {
 export interface IpoSubscriptionEntry {
   qib: number | null;
   nii: number | null;
+  niiBig: number | null;
+  niiSmall: number | null;
   retail: number | null;
   employee: number | null;
+  shareholders: number | null;
   total: number | null;
   subscriptionDate: Date | null;
   source: string;
@@ -222,9 +243,10 @@ export interface IpoDetail extends IpoListItem {
   symbol: string | null;
   issueSize: number | null;
   faceValue: number | null;
-  allotmentDate: Date | null;
   gmpHistory: IpoGmpHistoryEntry[];
   latestSubscription: IpoSubscriptionEntry | null;
+  /** Last official figures of each bidding day (Day 1, Day 2, ...). */
+  daywiseSubscription: DaywiseSubscriptionRow[];
   research: IpoResearchData;
   updatedAt: Date;
 }
@@ -256,7 +278,8 @@ export async function getIpoBySlug(slug: string): Promise<IpoDetail | null> {
       where: { slug },
       include: {
         gmps: { orderBy: { recordedAt: "desc" }, take: 30 },
-        subscriptions: { orderBy: { subscriptionDate: "desc" }, take: 1 },
+        // Newest first; the history feeds the day-wise table.
+        subscriptions: { orderBy: { subscriptionDate: "desc" }, take: 300 },
       },
     });
 
@@ -269,7 +292,6 @@ export async function getIpoBySlug(slug: string): Promise<IpoDetail | null> {
       ...listItem,
       symbol: ipo.symbol,
       faceValue: toNumber(ipo.faceValue),
-      allotmentDate: ipo.allotmentDate,
       // Recomputed against the current price basis so history and the
       // headline estimate always use the same issue price.
       gmpHistory: ipo.gmps.map((gmp) => {
@@ -291,14 +313,33 @@ export async function getIpoBySlug(slug: string): Promise<IpoDetail | null> {
         ? {
             qib: toNumber(latestSubscription.qib),
             nii: toNumber(latestSubscription.nii),
+            niiBig: toNumber(latestSubscription.niiBig),
+            niiSmall: toNumber(latestSubscription.niiSmall),
             retail: toNumber(latestSubscription.retail),
             employee: toNumber(latestSubscription.employee),
+            shareholders: toNumber(latestSubscription.shareholders),
             total: toNumber(latestSubscription.total),
             subscriptionDate: latestSubscription.subscriptionDate,
             source: latestSubscription.source,
             sourceUpdatedAt: latestSubscription.sourceUpdatedAt,
           }
         : null,
+      daywiseSubscription: buildDaywiseSubscription(
+        ipo.subscriptions.map((row) => ({
+          qib: toNumber(row.qib),
+          nii: toNumber(row.nii),
+          niiBig: toNumber(row.niiBig),
+          niiSmall: toNumber(row.niiSmall),
+          retail: toNumber(row.retail),
+          employee: toNumber(row.employee),
+          shareholders: toNumber(row.shareholders),
+          total: toNumber(row.total),
+          source: row.source,
+          sourceUpdatedAt: row.sourceUpdatedAt,
+        })),
+        ipo.openDate,
+        ipo.closeDate,
+      ),
       research: (ipo.researchData as unknown as IpoResearchData | null) ?? emptyResearchData,
       updatedAt: ipo.updatedAt,
     };
@@ -344,6 +385,10 @@ function toListItem(ipo: IpoWithLatestRecords, now: Date): IpoListItem {
     openDate: ipo.openDate,
     closeDate: ipo.closeDate,
     listingDate: ipo.listingDate,
+    allotmentDate:
+      allotmentDateFromSchedule((ipo.researchData as unknown as IpoResearchData | null)?.schedule) ??
+      toDateKey(ipo.allotmentDate),
+    registrar: ipo.registrar,
     gmp: latestGmp ? toNumber(latestGmp.gmp) : null,
     gmpSource: latestGmp?.source ?? null,
     gmpSourceUpdatedAt: latestGmp?.sourceUpdatedAt ?? null,
@@ -399,6 +444,9 @@ function pickLatestSubscription(
     ? { times: stored.total, source: stored.source, updatedAt: stored.updatedAt }
     : null;
 
+  // The exchanges' own figures (BSE + NSE combined, or NSE's SME total) are
+  // the official ones; the feed and older NSE-only rows never replace them.
+  if (nse && OFFICIAL_SUBSCRIPTION_SOURCES.has(nse.source)) return nse;
   if (feed && nse) {
     return (nse.updatedAt?.getTime() ?? 0) > (feed.updatedAt?.getTime() ?? 0) ? nse : feed;
   }
@@ -426,6 +474,8 @@ function liveToListItem(ipo: NormalizedIpo, now: Date): IpoListItem {
     openDate: ipo.openDate ? new Date(ipo.openDate) : null,
     closeDate: ipo.closeDate ? new Date(ipo.closeDate) : null,
     listingDate: ipo.listingDate ? new Date(ipo.listingDate) : null,
+    allotmentDate: allotmentDateFromSchedule(ipo.research?.schedule),
+    registrar: null,
     // GMP is deliberately not fetched per IPO for list views; that would be
     // one extra API call per row on every cache miss.
     gmp: null,
@@ -511,7 +561,7 @@ async function getLiveIpoBySlug(slug: string): Promise<IpoDetail | null> {
       ...item,
       symbol: match.symbol ?? null,
       faceValue: match.faceValue ?? null,
-      allotmentDate: match.allotmentDate ? new Date(match.allotmentDate) : null,
+      allotmentDate: item.allotmentDate ?? toDateKey(match.allotmentDate),
       gmpHistory: gmp
         ? [{
             gmp: gmp.gmp,
@@ -523,6 +573,7 @@ async function getLiveIpoBySlug(slug: string): Promise<IpoDetail | null> {
           }]
         : [],
       latestSubscription: null,
+      daywiseSubscription: [],
       research: match.research ?? emptyResearchData,
       updatedAt: now,
     };

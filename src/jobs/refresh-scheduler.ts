@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { refreshIpoData } from "@/services/ipo-refresh-service";
+import { refreshOpenSubscriptions } from "@/services/subscription-refresh-service";
 import { logger } from "@/utils/logger";
 
 const CHECK_EVERY_MS = 10 * 60_000;
@@ -8,14 +9,22 @@ const CHECK_EVERY_MS = 10 * 60_000;
 const MAX_ATTEMPTS_PER_DAY = 3;
 const DEFAULT_DAILY_AT = "20:00";
 const STATE_FILE = process.env.IPO_REFRESH_STATE_FILE || ".data/refresh-state.json";
+/** Open-IPO subscription updates (free NSE data): weekdays, during bidding and until NSE's final evening figures. */
+const SUBSCRIPTION_EVERY_MS = 30 * 60_000;
+const SUBSCRIPTION_WINDOW = { from: "10:00", to: "19:30" };
 
 // Survives dev hot reloads, so a reload never starts a second timer.
 const state = globalThis as typeof globalThis & {
-  __iponexaRefreshScheduler?: { running: boolean; timer: NodeJS.Timeout };
+  __iponexaRefreshScheduler?: {
+    running: boolean;
+    timer: NodeJS.Timeout;
+    subscriptionsRunning: boolean;
+    subscriptionsLastRun: number | null;
+  };
 };
 
-/** "YYYY-MM-DD HH:MM" in IST. */
-function istNow(date: Date): { day: string; time: string } {
+/** "YYYY-MM-DD HH:MM" in IST, plus the weekday ("Mon"…). */
+function istNow(date: Date): { day: string; time: string; weekday: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
@@ -24,9 +33,14 @@ function istNow(date: Date): { day: string; time: string } {
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
+    weekday: "short",
   }).formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return { day: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+  return {
+    day: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:${get("minute")}`,
+    weekday: get("weekday"),
+  };
 }
 
 interface SchedulerState {
@@ -59,6 +73,17 @@ export function isDailyRunDue(now: Date, dailyAt: string, lastRunDay: string | n
 }
 
 /**
+ * True when open-IPO subscription figures should be updated: on weekdays
+ * between 10:00 and 19:30 IST, at most every 30 minutes. Pure, for tests.
+ */
+export function isSubscriptionRunDue(now: Date, lastRunAt: number | null): boolean {
+  const { time, weekday } = istNow(now);
+  if (weekday === "Sat" || weekday === "Sun") return false;
+  if (time < SUBSCRIPTION_WINDOW.from || time > SUBSCRIPTION_WINDOW.to) return false;
+  return lastRunAt === null || now.getTime() - lastRunAt >= SUBSCRIPTION_EVERY_MS - 60_000;
+}
+
+/**
  * Keeps IPO data fresh on a long-running server (`next start`) with ONE full
  * refresh per day at IPO_REFRESH_DAILY_AT (IST, default 20:00: after the
  * exchanges publish listing prices and the day's GMP is in). The paid IPO
@@ -72,6 +97,26 @@ export function startRefreshScheduler(): void {
 
   const configured = (process.env.IPO_REFRESH_DAILY_AT ?? DEFAULT_DAILY_AT).trim();
   const dailyAt = /^([01]\d|2[0-3]):[0-5]\d$/.test(configured) ? configured : DEFAULT_DAILY_AT;
+
+  // Half-hourly subscription figures for IPOs open today; free NSE data only.
+  const subscriptionTick = async () => {
+    const scheduler = state.__iponexaRefreshScheduler;
+    const now = new Date();
+    if (!scheduler || scheduler.running || scheduler.subscriptionsRunning) return;
+    if (!isSubscriptionRunDue(now, scheduler.subscriptionsLastRun)) return;
+    scheduler.subscriptionsRunning = true;
+    scheduler.subscriptionsLastRun = now.getTime();
+    try {
+      const result = await refreshOpenSubscriptions(now);
+      if (result.open > 0) logger.info("Open IPO subscriptions updated", { ...result });
+    } catch (error) {
+      logger.error("Open IPO subscription update failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      scheduler.subscriptionsRunning = false;
+    }
+  };
 
   const tick = async () => {
     const scheduler = state.__iponexaRefreshScheduler;
@@ -98,9 +143,13 @@ export function startRefreshScheduler(): void {
     }
   };
 
-  const timer = setInterval(tick, CHECK_EVERY_MS);
+  const timer = setInterval(() => {
+    void tick().then(subscriptionTick);
+  }, CHECK_EVERY_MS);
   timer.unref();
-  state.__iponexaRefreshScheduler = { running: false, timer };
-  setTimeout(tick, 60_000).unref();
+  state.__iponexaRefreshScheduler = { running: false, timer, subscriptionsRunning: false, subscriptionsLastRun: null };
+  setTimeout(() => {
+    void tick().then(subscriptionTick);
+  }, 60_000).unref();
   logger.info("IPO refresh scheduler started", { dailyAtIst: dailyAt, lastRunDay: readState().lastRunDay });
 }

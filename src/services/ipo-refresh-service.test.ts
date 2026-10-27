@@ -9,6 +9,9 @@ vi.mock("@/services/ipo-query-service", () => ({ clearIpoLiveCache: vi.fn() }));
 vi.mock("@/services/listing-price-service", () => ({
   fillListingPrices: vi.fn(async () => ({ candidates: 0, filled: 0 })),
 }));
+vi.mock("@/services/registrar-service", () => ({
+  fillRegistrars: vi.fn(async () => ({ candidates: 0, filled: 0 })),
+}));
 vi.mock("@/providers", () => ({ getIpoDataProvider: vi.fn() }));
 
 import { needsGmp, needsMarketData, refreshIpoData } from "@/services/ipo-refresh-service";

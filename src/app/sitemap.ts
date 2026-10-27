@@ -16,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/upcoming-ipos`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/recently-listed-ipos`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/compare`, lastModified: now, changeFrequency: "weekly", priority: 0.5 },
+    { url: `${base}/ipo-allotment-status`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
   ];

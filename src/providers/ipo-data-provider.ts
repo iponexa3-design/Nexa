@@ -19,6 +19,7 @@ export interface IpoDataProvider {
   fetchSubscription(
     ipoSlug: string,
     symbol?: string | null,
+    ipoType?: "MAINBOARD" | "SME",
   ): Promise<NormalizedSubscription | null>;
 }
 

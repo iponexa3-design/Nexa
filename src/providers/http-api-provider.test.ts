@@ -200,14 +200,20 @@ describe("HttpApiProvider.fetchIpos", () => {
       ok: true,
       status: 200,
       json: async () => ({
-        data: [
-          { category: "Qualified Institutional Buyers(QIBs)", noOfTime: "2.5" },
-          { category: "Non Institutional Investors", noOfTime: "1.25" },
-          { category: "Non Institutional Investors(Bid amount of more than Ten Lakh Rupees)", noOfTime: "0.8" },
-          { category: "Retail Individual Investors(RIIs)", noOfTime: "3.75" },
-          { category: "Employees", noOfTime: "0.4" },
-          { category: "Total", noOfTime: "2.1" },
-        ],
+        // NSE-only bids: must be ignored in favour of the consolidated table.
+        bidDetails: [{ category: "Total", noOfTime: "1.1" }],
+        activeCat: {
+          dataList: [
+            { category: "Category", noOfTotalMeant: "No. of times of total meant for the category" },
+            { category: "Qualified Institutional Buyers(QIBs)", noOfTotalMeant: "2.5" },
+            { category: "Non Institutional Investors", noOfTotalMeant: "1.25" },
+            { category: "Non Institutional Investors(Bid amount of more than Ten Lakh Rupees)", noOfTotalMeant: "0.8" },
+            { category: "Retail Individual Investors(RIIs)", noOfTotalMeant: "3.75" },
+            { category: "Employees", noOfTotalMeant: "0.4" },
+            { category: "Total", noOfTotalMeant: "2.1" },
+          ],
+          updateTime: "Updated as on 27-Oct-2026 17:00:09",
+        },
       }),
     } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
@@ -221,7 +227,7 @@ describe("HttpApiProvider.fetchIpos", () => {
     const subscription = await provider.fetchSubscription("example-ipo", "EXAMPLE");
 
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "https://www.nseindia.com/api/ipo-bid-details?symbol=EXAMPLE&series=EQ",
+      "https://www.nseindia.com/api/ipo-detail?symbol=EXAMPLE&series=EQ",
     );
     expect(subscription).toMatchObject({
       ipoSlug: "example-ipo",
@@ -230,7 +236,37 @@ describe("HttpApiProvider.fetchIpos", () => {
       retail: 3.75,
       employee: 0.4,
       total: 2.1,
-      source: "nse",
+      source: "bse+nse",
+      // 17:00:09 IST
+      sourceUpdatedAt: "2026-10-27T11:30:09.000Z",
+    });
+  });
+
+  it("stores NSE's official overall figure for SME issues, queried as series SME", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        demandGraphALL: { noOfTimesIssueSubscribed: "6.68" },
+        activeCat: {
+          dataList: [{ category: "Qualified Institutional Buyers(QIBs)", noOfTotalMeant: "0.00" }],
+          updateTime: "Updated as on 16-Oct-2026 19:00:00",
+        },
+      }),
+    } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new HttpApiProvider({ name: "http-api", baseUrl: "https://api.ipoalerts.in" });
+    const subscription = await provider.fetchSubscription("ravita", "RAVITA", "SME");
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("symbol=RAVITA&series=SME");
+    expect(subscription).toMatchObject({
+      total: 6.68,
+      qib: null,
+      nii: null,
+      retail: null,
+      source: "nse-sme-total",
+      sourceUpdatedAt: "2026-10-16T13:30:00.000Z",
     });
   });
 

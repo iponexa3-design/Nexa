@@ -49,6 +49,8 @@ model Ipo {
   actualListingPrice Decimal?  @map("actual_listing_price")
   faceValue          Decimal?  @map("face_value")
   issuePrice         Decimal?  @map("issue_price")
+  // Registrar to the issue (runs the allotment), from NSE issue information.
+  registrar          String?
   researchData       Json?     @map("research_data")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -84,8 +86,12 @@ model Subscription {
   ipoId            String    @map("ipo_id")
   qib              Decimal?
   nii              Decimal?
+  // NII split: bids above Rs 10 lakh ("big") and Rs 2-10 lakh ("small").
+  niiBig           Decimal?  @map("nii_big")
+  niiSmall         Decimal?  @map("nii_small")
   retail           Decimal?
   employee         Decimal?
+  shareholders     Decimal?
   total            Decimal?
   subscriptionDate DateTime? @map("subscription_date")
   source           String

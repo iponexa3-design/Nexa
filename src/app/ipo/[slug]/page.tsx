@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getIpoBySlug } from "@/services/ipo-query-service";
 import { GmpFreshnessNote, toneClass } from "@/components/gmp/indicators";
+import { AllotmentLinks, StageBadge } from "@/components/allotment/AllotmentLinks";
+import { allotmentStage, findRegistrar } from "@/services/allotment";
+import type { DaywiseSubscriptionRow } from "@/services/subscription-history";
 import {
   formatCurrency,
   formatDate,
@@ -36,13 +39,16 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
   const hasGmp = ipo.gmp !== null;
   const isListed = ipo.status === "LISTED";
   const research = ipo.research;
+  // Shown while allotment is relevant: from opening until shortly after listing.
+  const allotment = allotmentStage(ipo, new Date());
   const sourceLinks = [
     { label: "Prospectus / RHP", url: research.prospectusUrl },
     { label: "NSE issue page", url: research.nseInfoUrl },
     { label: "BSE issue page", url: research.bseInfoUrl },
   ].filter((link) => isSafeExternalUrl(link.url));
-  const subscriptionMultiple =
-    research.subscription?.timesSubscribed ?? ipo.latestSubscription?.total ?? null;
+  // Whichever source (NSE or the IPO feed) updated most recently, same as the lists.
+  const subscriptionMultiple = ipo.subscriptionTimes;
+  const subscriptionFromNse = ipo.latestSubscription !== null && ipo.subscriptionSource === ipo.latestSubscription.source;
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,#eef5f1_0%,#f7f8f5_420px,#f7f8f5_100%)]">
@@ -122,6 +128,19 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
           <Field label="Listing Date" value={formatDate(ipo.listingDate)} />
         </dl>
       </Section>
+
+      {allotment ? (
+        <Section title="Allotment Status">
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
+            <StageBadge stage={allotment} allotmentDate={ipo.allotmentDate} />
+            <span>
+              {ipo.registrar ? `Registrar: ${findRegistrar(ipo.registrar)?.name ?? ipo.registrar}. ` : ""}
+              Check with your PAN or application number on the official page.
+            </span>
+          </div>
+          <AllotmentLinks registrar={ipo.registrar} exchange={ipo.exchange} ipoType={ipo.ipoType} />
+        </Section>
+      ) : null}
 
       {research.schedule.length > 0 ? (
         <Section title="Issue Timeline">
@@ -237,38 +256,36 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
         {ipo.latestSubscription || research.subscription ? (
           <>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {ipo.latestSubscription ? (
+              {/* Category figures only alongside the total they belong to. */}
+              {subscriptionFromNse && ipo.latestSubscription && ipo.latestSubscription.qib !== null ? (
                 <>
                   <Field label="QIB" value={formatSubscriptionTimes(ipo.latestSubscription.qib)} />
                   <Field label="NII" value={formatSubscriptionTimes(ipo.latestSubscription.nii)} />
                   <Field label="Retail" value={formatSubscriptionTimes(ipo.latestSubscription.retail)} />
                 </>
               ) : null}
-              {research.subscription?.timesSubscribed !== null && research.subscription?.timesSubscribed !== undefined ? (
-                <Field label="Total subscribed" value={formatSubscriptionTimes(research.subscription.timesSubscribed)} />
-              ) : ipo.latestSubscription ? (
-                <Field label="Total" value={formatSubscriptionTimes(ipo.latestSubscription.total)} />
-              ) : null}
-              {research.subscription?.sharesOffered !== null && research.subscription?.sharesOffered !== undefined ? (
+              <Field label="Total subscribed" value={formatSubscriptionTimes(subscriptionMultiple)} />
+              {/* Share counts come with the feed's figure; shown only when that figure is the newest. */}
+              {!subscriptionFromNse && research.subscription?.sharesOffered != null ? (
                 <Field label="Shares offered" value={formatShares(research.subscription.sharesOffered)} />
               ) : null}
-              {research.subscription?.sharesBid !== null && research.subscription?.sharesBid !== undefined ? (
+              {!subscriptionFromNse && research.subscription?.sharesBid != null ? (
                 <Field label="Shares bid" value={formatShares(research.subscription.sharesBid)} />
               ) : null}
             </dl>
-            {ipo.latestSubscription ? (
-              <p className="mt-3 text-xs text-zinc-500">
-                Updated {formatDateTime(ipo.latestSubscription.sourceUpdatedAt)} · source: {ipo.latestSubscription.source}
-              </p>
-            ) : null}
-            {research.subscription?.updatedAt ? (
-              <p className="mt-3 text-xs text-zinc-500">
-                IPOAlerts subscription snapshot updated {formatDateTime(research.subscription.updatedAt)}.
-              </p>
+            <p className="mt-3 text-xs text-zinc-500">
+              Updated {formatDateTime(ipo.subscriptionUpdatedAt)} · source: {sourceLabel(ipo.subscriptionSource)}
+            </p>
+            {ipo.daywiseSubscription.length > 0 ? (
+              <DaywiseSubscription rows={ipo.daywiseSubscription} live={ipo.status === "OPEN"} />
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-zinc-500">Subscription data not available yet.</p>
+          <p className="text-sm text-zinc-500">
+            {ipo.status === "UPCOMING"
+              ? "Subscription figures appear once bidding opens."
+              : "Subscription figures are not available for this issue (SME issues listed only on BSE are not covered yet)."}
+          </p>
         )}
       </Section>
 
@@ -424,6 +441,82 @@ function InsightList({
       </ul>
     </div>
   );
+}
+
+const daywiseColumns: Array<{ key: keyof DaywiseSubscriptionRow; label: string }> = [
+  { key: "qib", label: "QIB (Ex Anchor)" },
+  { key: "nii", label: "NII" },
+  { key: "niiBig", label: "NII (> ₹10L)" },
+  { key: "niiSmall", label: "NII (< ₹10L)" },
+  { key: "retail", label: "Retail" },
+  { key: "employee", label: "EMP" },
+  { key: "shareholders", label: "Shareholders" },
+  { key: "total", label: "Total" },
+];
+
+const dayLabelFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" });
+
+/**
+ * Subscription at the end of each bidding day (the last official figures
+ * NSE published that day). Columns with no figures for any day are hidden.
+ */
+function DaywiseSubscription({ rows, live }: { rows: DaywiseSubscriptionRow[]; live: boolean }) {
+  const columns = daywiseColumns.filter((column) => rows.some((row) => row[column.key] !== null));
+  const last = rows[rows.length - 1];
+  return (
+    <div className="mt-6">
+      <h3 className="mb-2 text-sm font-bold text-zinc-900">Day-wise subscription (times)</h3>
+      <div className="overflow-x-auto rounded-xl border border-zinc-100">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-[#f6faf9]">
+            <tr className="text-xs text-zinc-500">
+              <th className="px-3 py-2 text-left font-semibold">Date</th>
+              {columns.map((column) => (
+                <th key={column.key} className="px-3 py-2 text-right font-semibold">
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.date} className="border-t border-zinc-100">
+                <td className="whitespace-nowrap px-3 py-2 text-zinc-700">
+                  {dayLabelFormat.format(new Date(`${row.date}T12:00:00+05:30`))}{" "}
+                  <span className="text-xs text-zinc-500">
+                    (Day {row.day}
+                    {live && row === last ? ", live" : ""})
+                  </span>
+                </td>
+                {columns.map((column) => {
+                  const value = row[column.key] as number | null;
+                  return (
+                    <td
+                      key={column.key}
+                      className={`px-3 py-2 text-right tabular-nums ${column.key === "total" ? "font-bold text-zinc-900" : "text-zinc-700"}`}
+                    >
+                      {value === null ? "—" : value.toFixed(2)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-zinc-500">
+        Each day shows the last figures NSE published that day (Day {last.day}: {formatDateTime(last.updatedAt)}).
+        {rows[0].day > 1 ? " Earlier days were not recorded." : ""}
+      </p>
+    </div>
+  );
+}
+
+function sourceLabel(source: string | null): string {
+  if (source === "bse+nse") return "BSE + NSE combined (from NSE)";
+  if (source === "nse-sme-total") return "NSE official total (category figures not published for SME issues)";
+  if (source === "nse") return "NSE bids only";
+  return source ?? "Not available";
 }
 
 function Section({
