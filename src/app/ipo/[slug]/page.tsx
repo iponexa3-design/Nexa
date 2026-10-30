@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { gmpSourceLabel } from "@/utils/gmp-source";
+import { subscriptionSourceLabel } from "@/utils/subscription-source";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getIpoBySlug } from "@/services/ipo-query-service";
@@ -571,10 +572,7 @@ function DaywiseSubscription({ rows, live }: { rows: DaywiseSubscriptionRow[]; l
 }
 
 function sourceLabel(source: string | null): string {
-  if (source === "bse+nse") return "BSE + NSE combined (from NSE)";
-  if (source === "nse-sme-total") return "NSE official total (category figures not published for SME issues)";
-  if (source === "nse") return "NSE bids only";
-  return source ?? "Not available";
+  return subscriptionSourceLabel(source);
 }
 
 function Section({

@@ -13,8 +13,13 @@ import {
   type IpoDerivedFigures,
 } from "@/services/gmp-tracker";
 import { buildWeekCalendar, type CalendarDay } from "@/services/homepage-insights";
+import { buildSubscriptionRows, type SubscriptionTrackerRow } from "@/services/subscription-tracker";
 import { allotmentDateFromSchedule, selectAllotmentIpos, type AllotmentStage } from "@/services/allotment";
-import { buildDaywiseSubscription, type DaywiseSubscriptionRow } from "@/services/subscription-history";
+import {
+  buildDaywiseSubscription,
+  type DaywiseSubscriptionRow,
+  type SubscriptionFigures,
+} from "@/services/subscription-history";
 import type { IpoResearchData, NormalizedIpo } from "@/types/ipo";
 import type { IpoType } from "@/generated/prisma/enums";
 
@@ -31,6 +36,8 @@ export interface IpoListItem extends IpoDerivedFigures {
   subscriptionTimes: number | null;
   subscriptionSource: string | null;
   subscriptionUpdatedAt: Date | null;
+  /** Category figures belonging to `subscriptionTimes`, when that figure came from the exchanges. */
+  subscriptionBreakdown: SubscriptionFigures | null;
   issuePrice: number | null;
   actualListingPrice: number | null;
   openDate: Date | null;
@@ -166,6 +173,12 @@ export interface AllotmentPageData {
 export async function getAllotmentData(now: Date = new Date()): Promise<AllotmentPageData> {
   const { items, liveFeedUnavailable } = await loadIpoListItems();
   return { ipos: selectAllotmentIpos(items, now), liveFeedUnavailable };
+}
+
+/** IPOs that have opened for bidding, with their latest subscription figures, for the subscription tracker. */
+export async function getSubscriptionTrackerData(): Promise<{ rows: SubscriptionTrackerRow[]; dataUpdatedAt: Date | null }> {
+  const { items, dataUpdatedAt } = await loadIpoListItems();
+  return { rows: buildSubscriptionRows(items), dataUpdatedAt };
 }
 
 /** Every available IPO (upcoming, open, awaiting listing and listed) for the GMP tracker. */
@@ -379,6 +392,19 @@ function toListItem(ipo: IpoWithLatestRecords, now: Date): IpoListItem {
     subscriptionTimes: subscription.times,
     subscriptionSource: subscription.source,
     subscriptionUpdatedAt: subscription.updatedAt,
+    subscriptionBreakdown:
+      latestSubscription && subscription.source === latestSubscription.source
+        ? {
+            qib: toNumber(latestSubscription.qib),
+            nii: toNumber(latestSubscription.nii),
+            niiBig: toNumber(latestSubscription.niiBig),
+            niiSmall: toNumber(latestSubscription.niiSmall),
+            retail: toNumber(latestSubscription.retail),
+            employee: toNumber(latestSubscription.employee),
+            shareholders: toNumber(latestSubscription.shareholders),
+            total: toNumber(latestSubscription.total),
+          }
+        : null,
     issuePrice: toNumber(ipo.issuePrice),
     actualListingPrice: toNumber(ipo.actualListingPrice),
     openDate: ipo.openDate,
@@ -468,6 +494,7 @@ function liveToListItem(ipo: NormalizedIpo, now: Date): IpoListItem {
     subscriptionUpdatedAt: ipo.research?.subscription?.updatedAt
       ? new Date(ipo.research.subscription.updatedAt)
       : null,
+    subscriptionBreakdown: null,
     issuePrice: ipo.issuePrice ?? null,
     actualListingPrice: ipo.actualListingPrice ?? null,
     openDate: ipo.openDate ? new Date(ipo.openDate) : null,

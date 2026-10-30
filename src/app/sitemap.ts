@@ -25,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     page("/", "daily", 1),
     page("/gmp-tracker", "daily", 0.9),
+    page("/ipo-subscription", "daily", 0.9),
     page("/open-ipos", "daily", 0.8),
     page("/upcoming-ipos", "daily", 0.8),
     page("/recently-listed-ipos", "daily", 0.8),
