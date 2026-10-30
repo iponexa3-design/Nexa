@@ -55,7 +55,7 @@ export default async function Home() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#e0a065] opacity-60 motion-reduce:hidden" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#e0a065]" />
                 </span>
-                Live IPO feed
+                Updated daily
               </span>
               <h1 className="mt-5 text-3xl font-black leading-[1.06] sm:text-5xl">
                 Indian IPOs, their GMP and how they listed.

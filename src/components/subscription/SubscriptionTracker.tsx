@@ -58,7 +58,7 @@ const columns: Array<{ key: keyof SubscriptionFigures; label: string; short: str
 
 /** "12.34x"; oversubscribed figures (1x and above) are highlighted. */
 function Times({ value, strong = false }: { value: number | null | undefined; strong?: boolean }) {
-  if (value === null || value === undefined) return <span className="text-zinc-300">—</span>;
+  if (value === null || value === undefined) return <span className="text-zinc-500">—</span>;
   const over = value >= 1;
   return (
     <span className={`tabular-nums ${over ? "font-semibold text-emerald-800" : "text-zinc-600"} ${strong ? "text-[15px] font-black" : ""}`}>
@@ -115,7 +115,7 @@ export function SubscriptionTracker({ rows }: { rows: SubscriptionTrackerRow[] }
         </div>
         <label className="relative block w-full lg:max-w-xs">
           <span className="sr-only">Search IPOs</span>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500">
             <path d="m20 20-4.2-4.2M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <input
@@ -174,7 +174,7 @@ export function SubscriptionTracker({ rows }: { rows: SubscriptionTrackerRow[] }
                     <td className="px-4 py-3 text-right text-xs text-zinc-500">
                       {updatedText(row)}
                       {row.source ? (
-                        <span className="block text-[11px] text-zinc-400">{subscriptionSourceLabel(row.source, true)}</span>
+                        <span className="block text-[11px] text-zinc-500">{subscriptionSourceLabel(row.source, true)}</span>
                       ) : null}
                     </td>
                   </tr>

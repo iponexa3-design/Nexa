@@ -221,7 +221,7 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[460px] text-left text-sm">
                     <thead>
-                      <tr className="text-xs text-zinc-400">
+                      <tr className="text-xs text-zinc-500">
                         <th className="pb-2 font-medium">Quoted on</th>
                         <th className="pb-2 font-medium">Stored</th>
                         <th className="pb-2 text-right font-medium">GMP</th>

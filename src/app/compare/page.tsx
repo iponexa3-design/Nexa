@@ -146,7 +146,7 @@ function ComparisonTable({ rows }: { rows: GmpTrackerRow[] }) {
   // Grey-market figures stop mattering once an IPO has listed.
   const preListing = (label: string, render: (row: GmpTrackerRow) => ReactNode) =>
     metric(label, (row) =>
-      row.status === "LISTED" ? <span className="text-xs font-normal text-zinc-400">Listed: not applicable</span> : render(row),
+      row.status === "LISTED" ? <span className="text-xs font-normal text-zinc-500">Listed: not applicable</span> : render(row),
     );
   const groups: Array<{ title: string; metrics: ReturnType<typeof metric>[] }> = [
     {
@@ -193,9 +193,9 @@ function ComparisonTable({ rows }: { rows: GmpTrackerRow[] }) {
         metric("Listing date", (row) => formatDate(row.listingDate)),
         metric("Actual listing price", (row) =>
           row.status !== "LISTED" ? (
-            <span className="text-zinc-400">Not listed yet</span>
+            <span className="text-zinc-500">Not listed yet</span>
           ) : row.actualListingPrice === null ? (
-            <span className="text-xs font-normal text-zinc-400">Not available yet</span>
+            <span className="text-xs font-normal text-zinc-500">Not available yet</span>
           ) : (
             <Figure value={row.actualListingPrice} format={plain} />
           ),

@@ -333,6 +333,7 @@ case of losing the whole server. Copying backups off the server is an open item.
 | Site works in one browser, not another | That browser cached the old (pre-launch) address: close it fully, clear its DNS cache (`edge://net-internals/#dns` / `chrome://net-internals/#dns`) and cached files |
 | Google Analytics shows nothing | Check Reports → Realtime while visiting from a phone without an ad blocker; the "no data received" banner can lag up to 48 h |
 | No ads showing | Normal until Google approves the site (AdSense → Sites, can take days to weeks) and Auto ads is on; ad blockers hide ads; check `/ads.txt` is reachable |
+| Pages load slowly / Lighthouse says "Use HTTP/2" | Certbot writes `listen 443 ssl;` without HTTP/2. Run `bash deploy/enable-http2.sh` on the server (backs up, checks and reloads Nginx; restores the backup if the check fails) |
 | HTTPS certificate error | `sudo certbot renew` then `sudo systemctl reload nginx` |
 
 ## 12. Security

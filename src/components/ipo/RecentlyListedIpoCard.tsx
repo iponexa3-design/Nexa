@@ -59,7 +59,7 @@ export function RecentlyListedIpoCard({ ipo }: { ipo: IpoListItem }) {
 function Field({ label, value, className = "text-zinc-800" }: { label: string; value: string; className?: string }) {
   return (
     <div>
-      <dt className="text-xs text-zinc-400">{label}</dt>
+      <dt className="text-xs text-zinc-500">{label}</dt>
       <dd className={`font-medium ${className}`}>{value}</dd>
     </div>
   );

@@ -59,7 +59,7 @@ export function IpoTypeBadge({ ipoType }: { ipoType: "MAINBOARD" | "SME" }) {
  * The -800 shades keep at least 4.5:1 contrast on the status-tinted rows.
  */
 export function toneClass(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "text-zinc-400";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "text-zinc-500";
   if (value > 0) return "text-emerald-800";
   if (value < 0) return "text-rose-800";
   return "text-zinc-700";
@@ -79,7 +79,7 @@ export function Figure({
 }) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return (
-      <span className={`text-zinc-400 ${className}`} title="Not available">
+      <span className={`text-zinc-500 ${className}`} title="Not available">
         <span aria-hidden="true">—</span>
         <span className="sr-only">Not available</span>
       </span>
@@ -106,7 +106,7 @@ export function GmpFreshnessNote({
 }) {
   const manual = source?.startsWith(MANUAL_GMP_PREFIX) ? " · entered manually" : "";
   if (freshness === "UNAVAILABLE") {
-    return <span className="text-zinc-400">No GMP reported</span>;
+    return <span className="text-zinc-500">No GMP reported</span>;
   }
   if (status === "LISTED") {
     return <span className="text-zinc-500">Last pre-listing GMP</span>;
