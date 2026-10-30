@@ -165,7 +165,7 @@ function NameCell({ ipo }: { ipo: IpoListItem }) {
 function Cell({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <span className={`min-w-0 ${className}`}>
-      <span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400 md:hidden">{label}</span>
+      <span className="block text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-500 md:hidden">{label}</span>
       <span className="block truncate font-medium text-zinc-800">{children}</span>
     </span>
   );
@@ -219,7 +219,7 @@ function ListedRow({ ipo }: { ipo: IpoListItem }) {
         {ipo.actualListingPrice !== null ? (
           <span className="font-semibold">{formatCurrency(ipo.actualListingPrice)}</span>
         ) : (
-          <span className="text-xs text-zinc-400">Not available yet</span>
+          <span className="text-xs text-zinc-500">Not available yet</span>
         )}
       </Cell>
       <Cell label="Gain" className="md:text-right">

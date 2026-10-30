@@ -6,6 +6,7 @@ export const siteConfig = {
   nav: [
     { label: "Home", href: "/" },
     { label: "GMP Tracker", href: "/gmp-tracker" },
+    { label: "Subscription", href: "/ipo-subscription" },
     { label: "Open IPOs", href: "/open-ipos" },
     { label: "Upcoming IPOs", href: "/upcoming-ipos" },
     { label: "Recently Listed", href: "/recently-listed-ipos" },

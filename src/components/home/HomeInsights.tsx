@@ -45,7 +45,7 @@ export function WeekCalendar({ days }: { days: CalendarDay[] }) {
               }`}
             >
               <p className="flex items-baseline justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-600">
                   {day.isToday ? "Today" : weekdayFormatter.format(date)}
                 </span>
                 <span className="text-xs font-semibold text-zinc-700">{dayFormatter.format(date)}</span>
@@ -68,7 +68,7 @@ export function WeekCalendar({ days }: { days: CalendarDay[] }) {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-auto text-xs text-zinc-400">No events</p>
+                <p className="mt-auto text-xs text-zinc-500">No events</p>
               )}
             </li>
           );

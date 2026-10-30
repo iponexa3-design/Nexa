@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { gmpSourceLabel } from "@/utils/gmp-source";
 import { useViewMode, ViewModeToggle } from "@/components/ipo/view-mode";
 import {
   Figure,
@@ -222,7 +223,7 @@ export function GmpTracker({
               aria-hidden="true"
               viewBox="0 0 24 24"
               fill="none"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
             >
               <path d="m20 20-4.2-4.2M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
@@ -433,11 +434,11 @@ function ListedSummaryStrip({
           <SummaryStat label={summary.unchanged > 0 ? "Higher / lower / unchanged" : "Listed higher / lower"}>
             <span className="text-zinc-900">
               <span className="text-emerald-800">{summary.higher}</span>
-              <span className="text-zinc-400"> / </span>
+              <span className="text-zinc-500"> / </span>
               <span className="text-rose-800">{summary.lower}</span>
               {summary.unchanged > 0 ? (
                 <>
-                  <span className="text-zinc-400"> / </span>
+                  <span className="text-zinc-500"> / </span>
                   <span className="text-zinc-700">{summary.unchanged}</span>
                 </>
               ) : null}
@@ -451,7 +452,7 @@ function ListedSummaryStrip({
             {summary.worst ? (
               <ExtremeListing result={summary.worst} ties={summary.worstTies} />
             ) : (
-              <span className="text-zinc-400">—</span>
+              <span className="text-zinc-500">—</span>
             )}
           </SummaryStat>
         </dl>
@@ -536,7 +537,7 @@ function PreListingTable({
               <th scope="col" className="px-4 py-3"><span className="sr-only">Details</span></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white [&_.text-zinc-400]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700">
+          <tbody className="divide-y divide-white [&_.text-zinc-500]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700">
             {rows.map((row) => {
               const isSelected = selected.includes(row.slug);
               return (
@@ -565,7 +566,7 @@ function PreListingTable({
                         <span className="block text-zinc-500">{row.closeDate ? formatShortDate(row.closeDate) : "—"}</span>
                       </>
                     ) : (
-                      <span className="text-zinc-400" title="Dates not announced">—</span>
+                      <span className="text-zinc-500" title="Dates not announced">—</span>
                     )}
                   </td>
                   <td className="px-3 py-3">
@@ -579,7 +580,7 @@ function PreListingTable({
                       <td className="whitespace-nowrap px-3 py-3 text-right">
                         <Figure value={row.gmp} format={signed} toned className="block font-bold" />
                         <span className="block text-[11px]">
-                          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} />
+                          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} source={row.gmpSource} />
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-semibold">
@@ -702,7 +703,7 @@ function ListedTable({
               <th scope="col" className="px-4 py-3"><span className="sr-only">Details</span></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white [&_.text-zinc-400]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700">
+          <tbody className="divide-y divide-white [&_.text-zinc-500]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700">
             {rows.map((row) => {
               const isSelected = selected.includes(row.slug);
               return (
@@ -731,7 +732,7 @@ function ListedTable({
                     {row.actualListingPrice !== null ? (
                       <Figure value={row.actualListingPrice} format={plain} />
                     ) : (
-                      <span className="text-[11px] font-normal text-zinc-400">Not available yet</span>
+                      <span className="text-[11px] font-normal text-zinc-500">Not available yet</span>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right font-semibold">
@@ -782,7 +783,7 @@ function MobileCard({
   const listed = row.status === "LISTED";
 
   return (
-    <li className={`rounded-2xl border border-l-4 p-4 shadow-[0_4px_16px_rgba(23,74,82,0.05)] [&_.text-zinc-400]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700 ${checked ? `border-[#4f8f93] ${rowTint[row.category].strong}` : `border-[#e0e8e6] ${rowTint[row.category].base}`} ${cardStripe[row.category]}`}>
+    <li className={`rounded-2xl border border-l-4 p-4 shadow-[0_4px_16px_rgba(23,74,82,0.05)] [&_.text-zinc-500]:text-zinc-600 [&_.text-zinc-500]:text-zinc-700 ${checked ? `border-[#4f8f93] ${rowTint[row.category].strong}` : `border-[#e0e8e6] ${rowTint[row.category].base}`} ${cardStripe[row.category]}`}>
       <div className="flex items-start gap-3">
         <CompareCheckbox row={row} checked={checked} disabled={disabled} onToggle={onToggle} />
         <div className="min-w-0 flex-1">
@@ -833,7 +834,7 @@ function MobileCard({
             {row.actualListingPrice === null ? " · listing price not available yet" : ""}
           </span>
         ) : (
-          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} />
+          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} source={row.gmpSource} />
         )}
       </p>
 
@@ -872,7 +873,7 @@ function MobileCard({
           <Secondary label="Subscription">
             <Figure value={row.subscriptionTimes} format={formatSubscriptionTimes} />
           </Secondary>
-          {listed ? null : <Secondary label="GMP source">{row.gmpSource ?? "Not available"}</Secondary>}
+          {listed ? null : <Secondary label="GMP source">{gmpSourceLabel(row.gmpSource)}</Secondary>}
         </dl>
         {row.priceBasis === "UPPER_PRICE_BAND" ? (
           <p className="mt-3 text-[11px]">

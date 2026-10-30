@@ -57,7 +57,7 @@ export function IpoCard({ ipo }: { ipo: IpoListItem }) {
           </p>
         </div>
         <p className="col-span-2 -mt-1 text-[11px]">
-          <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} />
+          <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} source={ipo.gmpSource} />
         </p>
       </div>
 
@@ -89,8 +89,8 @@ function Field({ label, value }: { label: string; value: string }) {
   const missing = value === "Not available";
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-zinc-400">{label}</dt>
-      <dd className={`truncate font-medium ${missing ? "text-zinc-400" : "text-zinc-800"}`}>{value}</dd>
+      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dd className={`truncate font-medium ${missing ? "text-zinc-500" : "text-zinc-800"}`}>{value}</dd>
     </div>
   );
 }

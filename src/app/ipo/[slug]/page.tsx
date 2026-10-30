@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { gmpSourceLabel } from "@/utils/gmp-source";
+import { subscriptionSourceLabel } from "@/utils/subscription-source";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getIpoBySlug } from "@/services/ipo-query-service";
@@ -206,9 +208,10 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
                 label="Quoted on"
                 value={ipo.gmpSourceUpdatedAt ? formatDateTime(ipo.gmpSourceUpdatedAt) : "Not reported by source"}
               />
+              <Field label="GMP source" value={gmpSourceLabel(ipo.gmpSource)} />
             </dl>
             <p className="mt-3 text-xs">
-              <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} />
+              <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} source={ipo.gmpSource} />
             </p>
             {ipo.gmpHistory.length > 1 ? (
               <div className="mt-5">
@@ -218,7 +221,7 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[460px] text-left text-sm">
                     <thead>
-                      <tr className="text-xs text-zinc-400">
+                      <tr className="text-xs text-zinc-500">
                         <th className="pb-2 font-medium">Quoted on</th>
                         <th className="pb-2 font-medium">Stored</th>
                         <th className="pb-2 text-right font-medium">GMP</th>
@@ -402,7 +405,8 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
       ) : null}
 
       <p className="mt-2 text-xs text-zinc-500">
-        Sources: IPO details and GMP from IPO Alert, updated {formatDateTime(ipo.updatedAt)} IST
+        Sources: IPO details from IPO Alert, updated {formatDateTime(ipo.updatedAt)} IST
+        {ipo.gmpSource && !isListed ? ` · GMP: ${gmpSourceLabel(ipo.gmpSource)}` : ""}
         {ipo.subscriptionSource ? ` · subscription: ${sourceLabel(ipo.subscriptionSource)}` : ""}
         {ipo.actualListingPrice !== null ? " · listing price: NSE/BSE end-of-day files" : ""}.{" "}
         <Link href="/about" className="underline underline-offset-2">
@@ -568,10 +572,7 @@ function DaywiseSubscription({ rows, live }: { rows: DaywiseSubscriptionRow[]; l
 }
 
 function sourceLabel(source: string | null): string {
-  if (source === "bse+nse") return "BSE + NSE combined (from NSE)";
-  if (source === "nse-sme-total") return "NSE official total (category figures not published for SME issues)";
-  if (source === "nse") return "NSE bids only";
-  return source ?? "Not available";
+  return subscriptionSourceLabel(source);
 }
 
 function Section({
