@@ -177,7 +177,7 @@ function ComparisonTable({ rows }: { rows: GmpTrackerRow[] }) {
           <>
             <Figure value={row.gmp} format={signed} toned />
             <span className="block text-[11px] font-normal">
-              <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} />
+              <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} source={row.gmpSource} />
             </span>
           </>
         )),

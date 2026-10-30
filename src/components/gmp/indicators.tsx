@@ -1,4 +1,5 @@
 import type { GmpFreshness, PriceBasisKind } from "@/services/calculations";
+import { MANUAL_GMP_PREFIX } from "@/utils/gmp-source";
 import type { ComputedIpoStatus } from "@/utils/ipo-status";
 import { formatCurrency, formatShortDate } from "@/utils/format";
 
@@ -95,11 +96,15 @@ export function GmpFreshnessNote({
   freshness,
   sourceUpdatedAt,
   status,
+  source,
 }: {
   freshness: GmpFreshness;
   sourceUpdatedAt: string | Date | null;
   status: ComputedIpoStatus;
+  /** Stored GMP source; manual entries are marked as such. */
+  source?: string | null;
 }) {
+  const manual = source?.startsWith(MANUAL_GMP_PREFIX) ? " · entered manually" : "";
   if (freshness === "UNAVAILABLE") {
     return <span className="text-zinc-400">No GMP reported</span>;
   }
@@ -110,9 +115,9 @@ export function GmpFreshnessNote({
     return <span className="text-amber-700">Quote date not reported</span>;
   }
   if (freshness === "STALE") {
-    return <span className="text-amber-700">Outdated · {formatShortDate(sourceUpdatedAt)}</span>;
+    return <span className="text-amber-700">Outdated · {formatShortDate(sourceUpdatedAt)}{manual}</span>;
   }
-  return <span className="text-zinc-500">As of {formatShortDate(sourceUpdatedAt)}</span>;
+  return <span className="text-zinc-500">As of {formatShortDate(sourceUpdatedAt)}{manual}</span>;
 }
 
 export function PriceBasisNote({

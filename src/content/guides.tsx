@@ -73,7 +73,9 @@ export const guides: Guide[] = [
           <ul>
             <li>
               GMP figures come from our IPO data provider and are refreshed once a day, in the evening (Indian
-              time). Each figure shows the date it was quoted.
+              time). Where the provider has no GMP for an IPO, a figure may be entered manually from another public
+              GMP website; it is marked &ldquo;entered manually&rdquo; and names that website. Each figure shows the
+              date it was quoted.
             </li>
             <li>
               A GMP quoted more than 48 hours ago is marked <strong>Outdated</strong>, so an old number is never

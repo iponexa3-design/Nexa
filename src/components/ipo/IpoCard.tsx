@@ -57,7 +57,7 @@ export function IpoCard({ ipo }: { ipo: IpoListItem }) {
           </p>
         </div>
         <p className="col-span-2 -mt-1 text-[11px]">
-          <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} />
+          <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} source={ipo.gmpSource} />
         </p>
       </div>
 

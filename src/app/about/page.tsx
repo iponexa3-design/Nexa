@@ -18,8 +18,9 @@ const sources = [
   },
   {
     data: "Grey market premium (GMP)",
-    source: "IPO Alert. GMP is unofficial grey-market information",
-    when: "Once a day, in the evening (IST)",
+    source:
+      "IPO Alert. Where it has no GMP for an IPO, a figure may be entered manually from another public GMP website, and is labelled \"Entered manually from\" that website. GMP is unofficial grey-market information",
+    when: "Once a day, in the evening (IST); manual entries show their own date",
   },
   {
     data: "Subscription figures (QIB, NII, retail, total)",
@@ -73,7 +74,10 @@ export default function AboutPage() {
       </ProseSection>
 
       <ProseSection title="Where the data comes from">
-        <p>Every figure on IPONexa comes from one of these sources. We do not create or edit IPO figures ourselves.</p>
+        <p>
+          Every figure on IPONexa comes from one of these sources, and the source of each GMP is shown next to it. We
+          do not create or estimate IPO figures ourselves.
+        </p>
         <div className="overflow-x-auto rounded-xl border border-zinc-100">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-[#f6faf9] text-xs text-zinc-500">

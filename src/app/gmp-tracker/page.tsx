@@ -5,6 +5,7 @@ import { getGmpTrackerData } from "@/services/ipo-query-service";
 import { GMP_STALE_AFTER_HOURS } from "@/services/calculations";
 import type { TrackerFilters } from "@/services/gmp-tracker";
 import { formatDateTime } from "@/utils/format";
+import { gmpSourceLabel } from "@/utils/gmp-source";
 import { Faq, GuideLinks } from "@/components/content/ContentPage";
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
   const [data, params] = await Promise.all([getGmpTrackerData(), props.searchParams]);
   const filters = parseFilters(params);
   const withGmp = data.rows.filter((row) => row.gmp !== null).length;
-  const gmpSources = [...new Set(data.rows.flatMap((row) => (row.gmpSource ? [sourceName(row.gmpSource)] : [])))];
+  const gmpSources = [...new Set(data.rows.flatMap((row) => (row.gmpSource ? [gmpSourceLabel(row.gmpSource)] : [])))];
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,#eaf3f2_0%,#f3f7f6_360px,#f3f7f6_100%)]">
@@ -115,7 +116,7 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
 
         {gmpSources.length > 0 ? (
           <p className="mt-3 text-xs text-zinc-500">
-            Data sources: {gmpSources.join(", ")} (IPO details and GMP); NSE (subscription); NSE/BSE end-of-day files
+            Data sources: IPO Alert (IPO details); GMP: {gmpSources.join(", ")}; NSE (subscription); NSE/BSE end-of-day files
             (listing prices).{" "}
             <Link href="/about" className="underline underline-offset-2">
               About our data
@@ -165,11 +166,6 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
       </div>
     </div>
   );
-}
-
-/** Readable name for a stored GMP source code. */
-function sourceName(source: string): string {
-  return source === "ipoalerts" ? "IPO Alert" : source;
 }
 
 /** The scheduled refresh runs once a day; older than this means a run was missed. */

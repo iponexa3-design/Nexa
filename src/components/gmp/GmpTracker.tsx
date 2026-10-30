@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { gmpSourceLabel } from "@/utils/gmp-source";
 import { useViewMode, ViewModeToggle } from "@/components/ipo/view-mode";
 import {
   Figure,
@@ -579,7 +580,7 @@ function PreListingTable({
                       <td className="whitespace-nowrap px-3 py-3 text-right">
                         <Figure value={row.gmp} format={signed} toned className="block font-bold" />
                         <span className="block text-[11px]">
-                          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} />
+                          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} source={row.gmpSource} />
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-semibold">
@@ -833,7 +834,7 @@ function MobileCard({
             {row.actualListingPrice === null ? " · listing price not available yet" : ""}
           </span>
         ) : (
-          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} />
+          <GmpFreshnessNote freshness={row.gmpFreshness} sourceUpdatedAt={row.gmpSourceUpdatedAt} status={row.status} source={row.gmpSource} />
         )}
       </p>
 
@@ -872,7 +873,7 @@ function MobileCard({
           <Secondary label="Subscription">
             <Figure value={row.subscriptionTimes} format={formatSubscriptionTimes} />
           </Secondary>
-          {listed ? null : <Secondary label="GMP source">{row.gmpSource ?? "Not available"}</Secondary>}
+          {listed ? null : <Secondary label="GMP source">{gmpSourceLabel(row.gmpSource)}</Secondary>}
         </dl>
         {row.priceBasis === "UPPER_PRICE_BAND" ? (
           <p className="mt-3 text-[11px]">
