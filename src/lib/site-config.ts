@@ -22,9 +22,6 @@ export const siteConfig = {
     { label: "Terms of use", href: "/terms" },
     { label: "Privacy policy", href: "/privacy" },
   ],
-  /**
-   * Who runs the site, shown on the About page. Left empty on purpose: fill
-   * in real details only (e.g. "Operated by <name>, <city>, India").
-   */
-  operator: null as string | null,
+  /** Who runs the site, shown on the About page. Real details only. */
+  operator: { name: "Ajinkya Regundwar", city: "Pune, India" } as { name: string; city: string } | null,
 };
