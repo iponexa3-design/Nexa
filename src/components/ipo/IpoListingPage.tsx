@@ -1,6 +1,8 @@
 import { IpoCollection } from "@/components/ipo/IpoCollection";
 import { PageSearchBox, PageSearchProvider } from "@/components/search/PageSearch";
 import { getHomepageIpoGroups } from "@/services/ipo-query-service";
+import { Faq, GuideLinks, ProseSection } from "@/components/content/ContentPage";
+import { listingPageContent } from "@/content/listing-pages";
 
 type IpoListingCategory = "upcoming" | "open" | "recentlyListed";
 
@@ -32,6 +34,7 @@ export async function IpoListingPage({
 }) {
   const groups = await getHomepageIpoGroups();
   const details = categoryDetails[category];
+  const content = listingPageContent[category];
   const items = groups[category];
 
   return (
@@ -76,6 +79,15 @@ export async function IpoListingPage({
               : details.emptyMessage}
             />
         </PageSearchProvider>
+
+        <div className="mt-12 space-y-8 rounded-[22px] border border-[#e0e8e6] bg-white p-6 text-[15px] leading-7 text-zinc-700 shadow-[0_8px_24px_rgba(23,74,82,0.05)] sm:p-8">
+          <ProseSection title={content.explainerTitle}>{content.explainer}</ProseSection>
+          <Faq items={content.faq} />
+          <GuideLinks title="IPO guides" links={content.guides} />
+          <p className="text-xs leading-5 text-zinc-500">
+            Information only, not investment advice. GMP is unofficial and estimates are not guaranteed returns.
+          </p>
+        </div>
       </div>
     </div>
   );

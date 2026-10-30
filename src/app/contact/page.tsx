@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
   title: "Contact Us",
   description: "Send a message to the IPONexa team: questions, corrections or feedback about IPO data.",
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {
@@ -20,9 +22,39 @@ export default function ContactPage() {
           <ContactForm />
         </div>
 
-        <p className="mt-6 text-sm leading-6 text-zinc-500">
-          We cannot give investment advice or tell you whether to apply for an IPO.
-        </p>
+        <div className="mt-8 space-y-5 text-[15px] leading-7 text-zinc-700">
+          <section>
+            <h2 className="mb-1 text-lg font-bold text-zinc-900">Reporting a data error</h2>
+            <p>
+              Please include the IPO name, the figure that looks wrong, and where you saw the correct value (for
+              example the offer document or an exchange notice). We check every correction against the original
+              source before changing anything. You can see where each figure comes from on the{" "}
+              <Link href="/about" className="font-semibold text-[#174a52] underline underline-offset-4">
+                About page
+              </Link>
+              .
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-1 text-lg font-bold text-zinc-900">What we cannot help with</h2>
+            <p>
+              We cannot give investment advice or tell you whether to apply for an IPO, and we cannot check or change
+              an IPO application or allotment. For allotment questions, contact the IPO&apos;s registrar or your
+              broker; the{" "}
+              <Link href="/ipo-allotment-status" className="font-semibold text-[#174a52] underline underline-offset-4">
+                allotment status page
+              </Link>{" "}
+              links to the registrars.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-1 text-lg font-bold text-zinc-900">Stay safe</h2>
+            <p>
+              IPONexa never asks for your PAN, demat details, passwords, OTPs or payments, and does not offer paid
+              tips. Treat any message claiming otherwise as fraudulent.
+            </p>
+          </section>
+        </div>
       </div>
     </div>
   );

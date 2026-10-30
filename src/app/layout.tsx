@@ -19,11 +19,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Relative canonical and Open Graph URLs resolve against the live domain.
+  // Canonicals are set per page (never here, or every page would point home).
+  metadataBase: new URL(siteConfig.url),
   title: {
     default: `${siteConfig.name} - Indian IPO GMP & Listing Analysis`,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  openGraph: {
+    siteName: siteConfig.name,
+    type: "website",
+    locale: "en_IN",
+  },
   // AdSense site-ownership verification.
   ...(adsenseClient() ? { other: { "google-adsense-account": adsenseClient() as string } } : {}),
 };

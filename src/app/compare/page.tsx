@@ -27,6 +27,8 @@ import {
 export const metadata: Metadata = {
   title: "Compare IPO - GMP, Estimates & Listing",
   description: "Compare two or three IPOs side by side: price, lot size, GMP, indicative estimates and actual listing results.",
+  // Every selection (?ipos=a,b) is a view of the same page.
+  alternates: { canonical: "/compare" },
 };
 
 const groupLabels: Record<TrackerCategory, string> = {

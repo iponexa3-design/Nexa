@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getIpoBySlug } from "@/services/ipo-query-service";
 import { GmpFreshnessNote, toneClass } from "@/components/gmp/indicators";
 import { AllotmentLinks, StageBadge } from "@/components/allotment/AllotmentLinks";
 import { allotmentStage, findRegistrar } from "@/services/allotment";
 import type { DaywiseSubscriptionRow } from "@/services/subscription-history";
+import { buildIpoMetaDescription, buildIpoSummary, isIpoIndexable, type IpoSummaryInput } from "@/services/ipo-summary";
+import type { IpoDetail } from "@/services/ipo-query-service";
+import { GuideLinks } from "@/components/content/ContentPage";
 import {
   formatCurrency,
   formatDate,
@@ -28,7 +32,24 @@ export async function generateMetadata(
   const { slug } = await props.params;
   const ipo = await getIpoBySlug(slug);
   if (!ipo) return { title: "IPO not found" };
-  return { title: `${ipo.companyName} IPO - GMP, Price, Subscription & Listing` };
+  const indexable = isIpoIndexable(ipo, new Date());
+  return {
+    title: `${ipo.companyName} IPO - GMP, Price, Subscription & Listing`,
+    description: buildIpoMetaDescription(summaryInput(ipo)),
+    alternates: { canonical: `/ipo/${ipo.slug}` },
+    // Announced IPOs without a price or dates, and stale records, stay out of
+    // search results until real data arrives (they are also left out of the sitemap).
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
+  };
+}
+
+/** The data the page summary and meta description are written from. */
+function summaryInput(ipo: IpoDetail): IpoSummaryInput {
+  const fromNse = ipo.latestSubscription !== null && ipo.subscriptionSource === ipo.latestSubscription.source;
+  return {
+    ...ipo,
+    subscriptionCategories: fromNse && ipo.latestSubscription ? ipo.latestSubscription : null,
+  };
 }
 
 export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
@@ -101,11 +122,22 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
           </div>
         </header>
 
+      <Section title="IPO at a Glance">
+        <div className="max-w-3xl space-y-2 text-[15px] leading-7 text-zinc-700">
+          {buildIpoSummary(summaryInput(ipo), new Date()).map((sentence) => (
+            <p key={sentence}>{sentence}</p>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-zinc-500">
+          Written automatically from the figures on this page. Each section below shows its source and update time.
+        </p>
+      </Section>
+
       <Section title="Application & Issue Details">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Field label="Minimum Quantity" value={ipo.lotSize ? `${ipo.lotSize} shares` : "Not available"} />
           <Field label="Minimum Application" value={formatCurrency(ipo.minimumInvestment)} />
-          <Field label="Issue Size" value={ipo.issueSize ? `Rs. ${ipo.issueSize} Cr` : "Not available"} />
+          <Field label="Issue Size" value={ipo.issueSize ? `₹${ipo.issueSize.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr` : "Not available"} />
           <Field label="Face Value" value={formatCurrency(ipo.faceValue)} />
           {ipo.issuePrice ? <Field label="Issue Price" value={formatCurrency(ipo.issuePrice)} /> : null}
           {research.listingGain ? <Field label="Reported Listing Gain" value={`${research.listingGain}%`} /> : null}
@@ -116,6 +148,10 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
         <Section title="Company Overview">
           <p className="max-w-3xl whitespace-pre-line text-sm leading-7 text-zinc-700">
             {research.about}
+          </p>
+          <p className="mt-3 text-xs text-zinc-500">
+            Summary supplied by our IPO data provider (IPO Alert). The offer document (RHP) is the authoritative
+            description of the company.
           </p>
         </Section>
       ) : null}
@@ -328,7 +364,8 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
             ) : null}
           </div>
           <p className="mt-5 text-xs leading-5 text-zinc-500">
-            Company strengths and risks are informational summaries. Review the offer document for complete disclosures.
+            Strengths and risks are summaries supplied by our IPO data provider (IPO Alert), not IPONexa&apos;s
+            opinion. Review the offer document for the complete risk factors.
           </p>
         </Section>
       ) : null}
@@ -364,18 +401,36 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
         </Section>
       ) : null}
 
-      <p className="mt-2 text-[11px] text-zinc-400">
-        IPO data last updated {formatDateTime(ipo.updatedAt)} IST
-        {ipo.gmpSource ? ` · GMP: ${ipo.gmpSource}` : ""}
-        {ipo.latestSubscription ? ` · subscription: ${ipo.latestSubscription.source}` : ""}
-        {ipo.actualListingPrice !== null ? " · listing price: NSE/BSE" : ""}
+      <p className="mt-2 text-xs text-zinc-500">
+        Sources: IPO details and GMP from IPO Alert, updated {formatDateTime(ipo.updatedAt)} IST
+        {ipo.subscriptionSource ? ` · subscription: ${sourceLabel(ipo.subscriptionSource)}` : ""}
+        {ipo.actualListingPrice !== null ? " · listing price: NSE/BSE end-of-day files" : ""}.{" "}
+        <Link href="/about" className="underline underline-offset-2">
+          About our data
+        </Link>
       </p>
+
+      <div className="mt-8">
+        <GuideLinks
+          title="Understand these numbers"
+          links={[
+            { href: "/guides/ipo-gmp-explained", label: "What is IPO GMP?", text: "Why GMP is unofficial and how the estimate is calculated." },
+            { href: "/guides/ipo-subscription-explained", label: "Subscription explained", text: "QIB, NII and retail figures, and why BSE + NSE are combined." },
+            { href: "/guides/ipo-allotment-process", label: "How allotment works", text: "The T+3 timeline, the retail lottery and where to check status." },
+            { href: "/guides/listing-gain-calculation", label: "Listing gain calculation", text: "Estimated vs actual listing gain, and why real profit differs." },
+          ]}
+        />
+      </div>
 
       <p className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
         This page is for informational and educational purposes only. It is not
         investment advice and not a recommendation to buy, sell, or apply for
-        this IPO. GMP and subscription figures are unofficial/may change. Please
-        make your own independent decision.
+        this IPO. GMP is unofficial, and estimates are not guaranteed returns.
+        Subscription and other figures may change or be delayed. Please make your
+        own independent decision.{" "}
+        <Link href="/disclaimer" className="font-semibold underline underline-offset-2">
+          Disclaimer
+        </Link>
       </p>
       </div>
     </div>

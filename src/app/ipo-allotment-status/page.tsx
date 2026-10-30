@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "IPO Allotment Status - Check Online by PAN",
   description:
     "Check IPO allotment status for current and recent Indian IPOs. Go straight to the registrar (KFin, MUFG Intime, Bigshare and more) or BSE / NSE allotment pages.",
+  alternates: { canonical: "/ipo-allotment-status" },
 };
 
 // Allotment stages follow the calendar; re-read the database at most every 5 minutes.

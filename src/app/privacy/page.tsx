@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How IPONexa handles visitor data, cookies, analytics and advertising.",
+  alternates: { canonical: "/privacy" },
 };
 
 const LAST_UPDATED = "26 October 2026";
