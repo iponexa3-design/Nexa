@@ -6,7 +6,7 @@ import {
   findRegistrar,
   selectAllotmentIpos,
 } from "@/services/allotment";
-import { registrarFromIssueInfo } from "@/providers/nse-issue-info";
+import { lotSizeFromIssueInfo, registrarFromIssueInfo } from "@/providers/nse-issue-info";
 
 // 27 Oct 2026, 09:00 IST.
 const NOW = new Date("2026-10-27T03:30:00Z");
@@ -109,5 +109,17 @@ describe("registrarFromIssueInfo", () => {
     expect(registrarFromIssueInfo({ issueInfo: { dataList: [{ title: "Name of the Registrar", value: "-" }] } })).toBeNull();
     expect(registrarFromIssueInfo({})).toBeNull();
     expect(registrarFromIssueInfo(null)).toBeNull();
+  });
+});
+
+describe("lotSizeFromIssueInfo", () => {
+  it("reads the bid lot NSE publishes, falling back to the minimum order", () => {
+    expect(lotSizeFromIssueInfo({ issueInfo: { dataList: [{ title: "Bid Lot", value: "182 Equity Shares and in multiples thereof" }] } })).toBe(182);
+    expect(lotSizeFromIssueInfo({ issueInfo: { dataList: [{ title: "Minimum Order Quantity", value: "1,200 Equity Shares" }] } })).toBe(1200);
+  });
+
+  it("returns null when NSE gives no usable lot size", () => {
+    expect(lotSizeFromIssueInfo({ issueInfo: { dataList: [{ title: "Bid Lot", value: "-" }] } })).toBeNull();
+    expect(lotSizeFromIssueInfo({})).toBeNull();
   });
 });
