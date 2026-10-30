@@ -122,8 +122,7 @@ export default function AboutPage() {
         <p>
           IPONexa is an information website. It is not a SEBI-registered investment adviser, research analyst or
           stockbroker, it does not give buy, sell or apply recommendations, and it does not take IPO applications or
-          handle money. It is not operated by any stock exchange, registrar or company whose IPO appears on the site.
-          Please read the <Link href="/disclaimer">disclaimer</Link>.
+          handle money. Please read the <Link href="/disclaimer">disclaimer</Link>.
         </p>
       </ProseSection>
 
@@ -135,8 +134,17 @@ export default function AboutPage() {
         </p>
       </ProseSection>
 
+      {siteConfig.operator ? (
+        <ProseSection title="Who runs IPONexa">
+          <p>
+            IPONexa is run by <strong>{siteConfig.operator.name}</strong>, based in {siteConfig.operator.city}. It
+            is an independent website and is not affiliated with any stock exchange, registrar, broker or company
+            whose IPO appears on the site.
+          </p>
+        </ProseSection>
+      ) : null}
+
       <ProseSection title="Contact and corrections">
-        {siteConfig.operator ? <p>{siteConfig.operator}</p> : null}
         <p>
           If you spot a wrong or missing figure, or have a question, please use the{" "}
           <Link href="/contact">contact form</Link>. Corrections to data are checked against the original source
