@@ -5,11 +5,14 @@ import { getGmpTrackerData } from "@/services/ipo-query-service";
 import { GMP_STALE_AFTER_HOURS } from "@/services/calculations";
 import type { TrackerFilters } from "@/services/gmp-tracker";
 import { formatDateTime } from "@/utils/format";
+import { Faq, GuideLinks } from "@/components/content/ContentPage";
 
 export const metadata: Metadata = {
   title: "IPO GMP Tracker - Open, Upcoming & Listed IPOs",
   description:
     "Latest IPO grey market premium (GMP), indicative listing price, estimated gain per share and per lot, and actual listing performance for Mainboard and SME IPOs.",
+  // Filter and search links (?status=, ?q=) are views of the same page.
+  alternates: { canonical: "/gmp-tracker" },
 };
 
 const categories = new Set<TrackerFilters["category"]>(["all", "open", "upcoming", "closed", "listed"]);
@@ -30,7 +33,7 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
   const [data, params] = await Promise.all([getGmpTrackerData(), props.searchParams]);
   const filters = parseFilters(params);
   const withGmp = data.rows.filter((row) => row.gmp !== null).length;
-  const gmpSources = [...new Set(data.rows.flatMap((row) => (row.gmpSource ? [row.gmpSource] : [])))];
+  const gmpSources = [...new Set(data.rows.flatMap((row) => (row.gmpSource ? [sourceName(row.gmpSource)] : [])))];
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,#eaf3f2_0%,#f3f7f6_360px,#f3f7f6_100%)]">
@@ -111,11 +114,62 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
         </section>
 
         {gmpSources.length > 0 ? (
-          <p className="mt-3 text-[11px] text-zinc-400">Data sources: {gmpSources.join(", ")} (GMP); NSE/BSE (listing prices).</p>
+          <p className="mt-3 text-xs text-zinc-500">
+            Data sources: {gmpSources.join(", ")} (IPO details and GMP); NSE (subscription); NSE/BSE end-of-day files
+            (listing prices).{" "}
+            <Link href="/about" className="underline underline-offset-2">
+              About our data
+            </Link>
+          </p>
         ) : null}
+
+        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <Faq
+            items={[
+              {
+                question: "What do the tabs mean?",
+                answer:
+                  "Open IPOs are accepting bids now. Upcoming IPOs have not opened yet (some have no dates or price band yet). Awaiting listing means bidding has closed and the shares have not started trading. Listed shows IPOs that listed in the last 30 or 45 days with their actual listing results.",
+              },
+              {
+                question: "Why is the GMP of a listed IPO not shown?",
+                answer:
+                  "Once an IPO lists, its real listing price is known, so the tracker shows the actual listing price and gain instead of a GMP-based estimate.",
+              },
+              {
+                question: "Why do some IPOs show a dash instead of a GMP?",
+                answer: (
+                  <>
+                    A dash means no GMP has been reported for that IPO. It is never treated as zero, and no estimate is
+                    shown. See <Link href="/guides/ipo-gmp-explained">what IPO GMP is</Link>.
+                  </>
+                ),
+              },
+              {
+                question: "How often is the tracker updated?",
+                answer:
+                  "IPO details and GMP are refreshed once a day in the evening (IST). Subscription figures for open IPOs are refreshed every 30 minutes on weekdays. Each GMP shows the date it was quoted.",
+              },
+            ]}
+          />
+          <GuideLinks
+            title="IPO guides"
+            links={[
+              { href: "/guides/ipo-gmp-explained", label: "What is IPO GMP?", text: "Why GMP is unofficial and its limits." },
+              { href: "/guides/listing-gain-calculation", label: "Listing gain calculation", text: "Estimated vs actual gains and real profit." },
+              { href: "/guides/ipo-subscription-explained", label: "Subscription explained", text: "QIB, NII and retail figures." },
+              { href: "/guides/ipo-allotment-process", label: "How allotment works", text: "The T+3 timeline and the retail lottery." },
+            ]}
+          />
+        </div>
       </div>
     </div>
   );
+}
+
+/** Readable name for a stored GMP source code. */
+function sourceName(source: string): string {
+  return source === "ipoalerts" ? "IPO Alert" : source;
 }
 
 /** The scheduled refresh runs once a day; older than this means a run was missed. */

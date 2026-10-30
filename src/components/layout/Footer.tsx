@@ -13,23 +13,27 @@ export function Footer() {
           may be delayed. All information on this website is provided for
           informational and educational purposes only and does not constitute
           investment advice or a recommendation to buy, sell, or apply for any
-          IPO. Please make your own independent decisions.
+          IPO. Please make your own independent decisions.{" "}
+          <Link href="/disclaimer" className="font-semibold text-[#f2dfcb] underline underline-offset-4">
+            Read the full disclaimer
+          </Link>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p>
-            &copy; {new Date().getFullYear()}{" "}
-            <span className="font-semibold text-white">{siteConfig.name}</span>.
-            All rights reserved.
-          </p>
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link href="/contact" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
-              Contact us
+        <nav aria-label="Footer" className="mb-5 flex flex-wrap gap-x-6 gap-y-2">
+          {siteConfig.footerNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white"
+            >
+              {item.label}
             </Link>
-            <Link href="/privacy" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
-              Privacy policy
-            </Link>
-          </nav>
-        </div>
+          ))}
+        </nav>
+        <p>
+          &copy; {new Date().getFullYear()} <span className="font-semibold text-white">{siteConfig.name}</span>.
+          All rights reserved. {siteConfig.name} is an information website, not a SEBI-registered investment
+          adviser, research analyst or stockbroker.
+        </p>
       </div>
     </footer>
   );

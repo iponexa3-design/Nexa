@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { GuideLinks } from "@/components/content/ContentPage";
 import { IpoSection } from "@/components/ipo/IpoSection";
 import { IpoCollection } from "@/components/ipo/IpoCollection";
 import { WeekCalendar } from "@/components/home/HomeInsights";
@@ -8,6 +10,10 @@ import { getHomepageIpoGroups } from "@/services/ipo-query-service";
 // IPO status and GMP freshness change over time; re-read the database (never
 // the external API) at most every 5 minutes instead of serving build-time data.
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   const {
@@ -52,11 +58,12 @@ export default async function Home() {
                 Live IPO feed
               </span>
               <h1 className="mt-5 text-3xl font-black leading-[1.06] sm:text-5xl">
-                Every Indian IPO, its GMP and how it listed.
+                Indian IPOs, their GMP and how they listed.
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-6 text-[#d7e8e7] sm:text-base">
-                Track open and upcoming issues, indicative listing gains per lot, and real
-                listing-day results, updated automatically through the day.
+                Track open and upcoming issues, official subscription figures, indicative listing gains
+                per lot, and real listing-day results. GMP is refreshed daily; subscription every 30 minutes
+                during bidding.
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3">
@@ -138,6 +145,36 @@ export default async function Home() {
             <IpoCollection items={recentlyListed} pageSize={SECTION_PAGE_SIZE} listed accent="amber" emptyMessage="No recently listed IPOs yet." />
           </IpoSection>
         </PageSearchProvider>
+
+        <section className="mb-10 rounded-[22px] border border-[#e0e8e6] bg-white p-6 shadow-[0_8px_24px_rgba(23,74,82,0.05)] sm:p-8">
+          <h2 className="text-xl font-black text-zinc-900">New to IPOs? How to read this page</h2>
+          <div className="mt-3 grid gap-4 text-[15px] leading-7 text-zinc-700 md:grid-cols-3">
+            <p>
+              <strong className="text-zinc-900">Official figures</strong> such as the price band, lot size,
+              subscription and listing price come from the companies&apos; filings and the stock exchanges, and show
+              when they were last updated.
+            </p>
+            <p>
+              <strong className="text-zinc-900">GMP is unofficial.</strong> It is a grey-market quote that can be
+              wrong or change quickly, so the estimated gains built on it are indications, not predictions.
+            </p>
+            <p>
+              <strong className="text-zinc-900">Real results</strong> appear after listing: the listing-day opening
+              price and the actual gain or loss, before brokerage and tax.
+            </p>
+          </div>
+          <div className="mt-6">
+            <GuideLinks
+              title="IPO guides"
+              links={[
+                { href: "/guides/ipo-gmp-explained", label: "What is IPO GMP?", text: "What the grey market premium means and its limits." },
+                { href: "/guides/ipo-subscription-explained", label: "Subscription explained", text: "QIB, NII and retail figures, and day-wise demand." },
+                { href: "/guides/ipo-allotment-process", label: "How allotment works", text: "The T+3 timeline and how to check your status." },
+                { href: "/guides/listing-gain-calculation", label: "Listing gain calculation", text: "Why estimated and actual gains differ from your profit." },
+              ]}
+            />
+          </div>
+        </section>
 
         <p className="text-xs leading-5 text-zinc-500">
           *Estimated gain per lot = latest GMP × shares per lot. Indicative only; excludes brokerage, taxes and charges.

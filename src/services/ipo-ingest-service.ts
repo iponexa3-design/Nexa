@@ -201,7 +201,8 @@ function toIpoData(ipo: NormalizedIpo, status: ReturnType<typeof computeIpoStatu
     priceBandLow: ipo.priceBandLow ?? null,
     priceBandHigh: ipo.priceBandHigh ?? null,
     issueSize: ipo.issueSize ?? null,
-    lotSize: ipo.lotSize ?? null,
+    // Kept when the feed has none (it may have been filled from NSE).
+    lotSize: ipo.lotSize ?? undefined,
     openDate: ipo.openDate ? new Date(ipo.openDate) : null,
     closeDate: ipo.closeDate ? new Date(ipo.closeDate) : null,
     allotmentDate: ipo.allotmentDate ? new Date(ipo.allotmentDate) : null,
