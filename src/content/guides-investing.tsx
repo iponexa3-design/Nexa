@@ -189,7 +189,8 @@ export const investingGuides: Guide[] = [
         answer: (
           <>
             GMP is an unofficial grey market quote. Our <Link href="/ipo-gmp-accuracy">GMP accuracy study</Link> compares
-            it with actual listing prices: it often overstates the listing gain, especially for SME IPOs.
+            it with actual listing prices: the listing often differs from it by several percentage points, and by much
+            more for SME IPOs.
           </>
         ),
       },
