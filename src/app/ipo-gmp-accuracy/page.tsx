@@ -213,9 +213,9 @@ export default async function GmpAccuracyPage() {
                       "Only as a rough indication. Even when GMP points the right way, the listing price often differs from it by several percentage points, and for SME IPOs the gap is usually larger. GMP is an unofficial, unregulated quote from a small market, not a forecast.",
                   },
                   {
-                    question: "Why do listings so often fall short of the GMP?",
+                    question: "Why can the listing price differ so much from the GMP?",
                     answer:
-                      "Grey market quotes are made by a small number of dealers and tend to reflect the most optimistic buyers just before listing. On listing day the price is set by the whole market, including investors who were allotted shares and want to sell. Market conditions on the day also matter.",
+                      "Grey market quotes come from a small number of informal dealers. On listing day the price is set by the whole market in the exchange's pre-open session, including investors who were allotted shares and want to sell, and by market conditions on the day. The smaller the issue, the fewer people the grey market quote reflects, which is why SME IPOs tend to miss by more.",
                   },
                   {
                     question: "Where does IPONexa's GMP data come from?",
