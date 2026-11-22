@@ -1,4 +1,5 @@
 import { OFFICIAL_SUBSCRIPTION_SOURCES } from "@/providers/http-api-provider";
+import { isManualSubscriptionSource } from "@/utils/subscription-source";
 import { getIndiaDateKey, toDateKey } from "@/utils/ipo-status";
 
 export interface SubscriptionFigures {
@@ -51,7 +52,8 @@ export function buildDaywiseSubscription(
 
   const latestByDay = new Map<string, SubscriptionSnapshot & { sourceUpdatedAt: Date }>();
   for (const snapshot of snapshots) {
-    if (!snapshot.sourceUpdatedAt || !OFFICIAL_SUBSCRIPTION_SOURCES.has(snapshot.source)) continue;
+    const usable = OFFICIAL_SUBSCRIPTION_SOURCES.has(snapshot.source) || isManualSubscriptionSource(snapshot.source);
+    if (!snapshot.sourceUpdatedAt || !usable) continue;
     const date = getIndiaDateKey(snapshot.sourceUpdatedAt);
     if (date < opens || date > closes) continue;
     const current = latestByDay.get(date);
