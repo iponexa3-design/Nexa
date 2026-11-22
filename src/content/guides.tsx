@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { FaqItem } from "@/components/content/ContentPage";
+import { investingGuides } from "@/content/guides-investing";
 
 export interface Guide {
   slug: string;
@@ -526,6 +527,9 @@ export const guides: Guide[] = [
   },
 ];
 
+/** Every guide: the figures explained first, then applying for and evaluating IPOs. */
+export const allGuides: Guide[] = [...guides, ...investingGuides];
+
 export function findGuide(slug: string): Guide | undefined {
-  return guides.find((guide) => guide.slug === slug);
+  return allGuides.find((guide) => guide.slug === slug);
 }

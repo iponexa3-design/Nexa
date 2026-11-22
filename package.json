@@ -16,6 +16,7 @@
     "listing:set": "tsx scripts/set-listing-price.ts",
     "gmp:set": "tsx scripts/set-gmp.ts",
     "subscription:set": "tsx scripts/set-subscription.ts",
+    "ipos:dedupe": "tsx scripts/dedupe-ipos.ts",
     "registrars:fill": "tsx scripts/fill-registrars.ts",
     "subscriptions:refresh": "tsx scripts/refresh-subscriptions.ts",
     "backfill": "tsx scripts/backfill-ipos.ts"

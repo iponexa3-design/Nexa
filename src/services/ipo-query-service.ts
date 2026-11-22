@@ -20,6 +20,16 @@ import {
   type DaywiseSubscriptionRow,
   type SubscriptionFigures,
 } from "@/services/subscription-history";
+import { isIpoIndexable } from "@/services/ipo-summary";
+import {
+  buildGmpAccuracyRow,
+  listingGainBySubscription,
+  summarizeGmpAccuracy,
+  type GmpAccuracyRow,
+  type GmpAccuracyStats,
+  type ListedIpoOutcome,
+  type SubscriptionBand,
+} from "@/services/gmp-accuracy";
 import type { IpoResearchData, NormalizedIpo } from "@/types/ipo";
 import type { IpoType } from "@/generated/prisma/enums";
 
@@ -99,6 +109,7 @@ let liveIpoRecordsCache: { expiresAt: number; value: NormalizedIpo[] } | null = 
 const ipoDetailLiveCache: Map<string, { expiresAt: number; value: IpoDetail }> = new Map();
 
 export function clearIpoLiveCache(): void {
+  gmpAccuracyCache = null;
   liveListCache = null;
   liveIpoRecordsCache = null;
   ipoDetailLiveCache.clear();
@@ -278,6 +289,100 @@ const emptyResearchData: IpoResearchData = {
   schedule: [],
   subscription: null,
 };
+
+export interface GmpAccuracyData {
+  /** Listed IPOs with a GMP quote before listing day, newest listing first. */
+  rows: GmpAccuracyRow[];
+  overall: GmpAccuracyStats;
+  mainboard: GmpAccuracyStats;
+  sme: GmpAccuracyStats;
+  /** Listing gains grouped by subscription, over every listed IPO with both figures. */
+  bySubscription: SubscriptionBand[];
+  /** Listed IPOs with a listing price (the base of bySubscription). */
+  listedCount: number;
+  firstListing: string | null;
+  lastListing: string | null;
+}
+
+/** Listing prices change once a day, so the comparison is reused for a while across requests. */
+const GMP_ACCURACY_TTL_MS = 10 * 60_000;
+let gmpAccuracyCache: { expiresAt: number; value: GmpAccuracyData } | null = null;
+
+/**
+ * GMP against actual listing prices, from every stored listed IPO. Used by
+ * the GMP accuracy page and every IPO page, hence the cache.
+ */
+export async function getGmpAccuracyData(): Promise<GmpAccuracyData> {
+  if (gmpAccuracyCache && gmpAccuracyCache.expiresAt > Date.now()) return gmpAccuracyCache.value;
+  const value = await loadGmpAccuracyData();
+  gmpAccuracyCache = { expiresAt: Date.now() + GMP_ACCURACY_TTL_MS, value };
+  return value;
+}
+
+async function loadGmpAccuracyData(): Promise<GmpAccuracyData> {
+  const now = new Date();
+  const ipos = await prisma.ipo.findMany({
+    where: { actualListingPrice: { not: null }, listingDate: { not: null } },
+    include: {
+      gmps: { orderBy: { recordedAt: "desc" } },
+      subscriptions: { orderBy: { subscriptionDate: "desc" }, take: 1 },
+    },
+  });
+  const outcomes: ListedIpoOutcome[] = ipos.map((ipo) => {
+    const item = toListItem(ipo, now);
+    return {
+      slug: ipo.slug,
+      companyName: ipo.companyName,
+      ipoType: ipo.ipoType,
+      listingDate: ipo.listingDate,
+      basisPrice: item.basisPrice,
+      actualListingPrice: item.actualListingPrice,
+      subscriptionTimes: item.subscriptionTimes,
+      gmpQuotes: ipo.gmps.map((gmp) => ({ gmp: Number(gmp.gmp), quotedAt: gmp.sourceUpdatedAt ?? gmp.recordedAt })),
+    };
+  });
+  const rows = outcomes
+    .map(buildGmpAccuracyRow)
+    .filter((row): row is GmpAccuracyRow => row !== null)
+    .sort((a, b) => b.listingDate.localeCompare(a.listingDate) || a.companyName.localeCompare(b.companyName));
+  const listingDates = outcomes.map((ipo) => toDateKey(ipo.listingDate)).filter((key): key is string => key !== null).sort();
+  return {
+    rows,
+    overall: summarizeGmpAccuracy(rows),
+    mainboard: summarizeGmpAccuracy(rows.filter((row) => row.ipoType === "MAINBOARD")),
+    sme: summarizeGmpAccuracy(rows.filter((row) => row.ipoType === "SME")),
+    bySubscription: listingGainBySubscription(outcomes),
+    listedCount: outcomes.length,
+    firstListing: listingDates[0] ?? null,
+    lastListing: listingDates.at(-1) ?? null,
+  };
+}
+
+/**
+ * IPO pages for the sitemap: every stored IPO (not only recent ones) whose
+ * page passes the same indexing rule as its robots meta tag.
+ */
+export async function getIndexableIpoPages(now: Date = new Date()): Promise<Array<{ slug: string; updatedAt: Date }>> {
+  const ipos = await prisma.ipo.findMany({ include: listItemInclude });
+  return ipos
+    .filter((ipo) =>
+      isIpoIndexable(
+        { ...toListItem(ipo, now), companyOverview: (ipo.researchData as unknown as IpoResearchData | null)?.about },
+        now,
+      ),
+    )
+    .map((ipo) => ({ slug: ipo.slug, updatedAt: ipo.updatedAt }));
+}
+
+/** The current slug of an IPO that was renamed or merged away from `oldSlug`, if any. */
+export async function findRenamedIpoSlug(oldSlug: string): Promise<string | null> {
+  try {
+    const ipo = await prisma.ipo.findFirst({ where: { previousSlugs: { has: oldSlug } }, select: { slug: true } });
+    return ipo?.slug ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function getIpoBySlug(slug: string): Promise<IpoDetail | null> {
   const cached = ipoDetailLiveCache.get(slug);

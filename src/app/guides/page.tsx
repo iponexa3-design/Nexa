@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContentPage } from "@/components/content/ContentPage";
-import { guides } from "@/content/guides";
+import { allGuides } from "@/content/guides";
 
 export const metadata: Metadata = {
   title: "IPO Guides - GMP, Subscription, Allotment & Listing Gains",
   description:
-    "Plain-English guides for Indian retail investors: what IPO GMP means, how to read subscription figures, how allotment works and how listing gains are calculated.",
+    "Plain-English guides for Indian retail investors: how to apply for an IPO, SME vs mainboard IPOs, reading an RHP, anchor investors, GMP, subscription, allotment, listing gains and their tax.",
   alternates: { canonical: "/guides" },
 };
 
@@ -17,13 +17,20 @@ export default function GuidesPage() {
       title="IPO Guides"
       intro={
         <p>
-          Short, practical explanations of the numbers you see on IPONexa, written for Indian retail investors. They
-          explain what each figure means, how we calculate it, and its limits.
+          Practical guides for Indian retail investors: what the numbers on IPONexa mean and how we calculate them, how to
+          apply for an IPO, how to judge one from its offer document, and how listing gains are taxed.
         </p>
       }
     >
+      <p className="rounded-2xl bg-[#f6faf9] px-5 py-4 text-sm leading-6">
+        <strong className="text-zinc-900">Our research:</strong>{" "}
+        <Link href="/ipo-gmp-accuracy" className="font-semibold text-[#174a52] underline underline-offset-4">
+          How accurate is IPO GMP?
+        </Link>{" "}
+        We compare the last grey market premium before listing with the actual listing price of every IPO we track.
+      </p>
       <ul className="space-y-4">
-        {guides.map((guide) => (
+        {allGuides.map((guide) => (
           <li key={guide.slug}>
             <Link
               href={`/guides/${guide.slug}`}

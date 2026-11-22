@@ -16,6 +16,7 @@ export const siteConfig = {
   /** Footer links: learning material and the trust/legal pages. */
   footerNav: [
     { label: "IPO Guides", href: "/guides" },
+    { label: "GMP accuracy study", href: "/ipo-gmp-accuracy" },
     { label: "About", href: "/about" },
     { label: "Contact us", href: "/contact" },
     { label: "Disclaimer", href: "/disclaimer" },

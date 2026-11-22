@@ -8,6 +8,7 @@ import {
   validateSubscription,
 } from "@/services/ipo-validation";
 import { calculateListingFigures, resolvePriceBasis } from "@/services/calculations";
+import { isSameIpo } from "@/services/ipo-dedupe";
 import { computeIpoStatus } from "@/utils/ipo-status";
 import { logger } from "@/utils/logger";
 
@@ -20,6 +21,7 @@ export interface IngestSummary {
 export async function ingestIpos(ipos: NormalizedIpo[]): Promise<IngestSummary> {
   const summary: IngestSummary = { inserted: 0, updated: 0, skipped: 0 };
   const duplicateSlugs = new Set(findDuplicateSlugs(ipos));
+  const incomingSlugs = new Set(ipos.map((ipo) => ipo.slug));
 
   for (const ipo of ipos) {
     if (duplicateSlugs.has(ipo.slug)) {
@@ -39,7 +41,8 @@ export async function ingestIpos(ipos: NormalizedIpo[]): Promise<IngestSummary> 
 
     try {
       const status = computeIpoStatus(ipo);
-      const existing = await prisma.ipo.findUnique({ where: { slug: ipo.slug } });
+      let existing = await prisma.ipo.findUnique({ where: { slug: ipo.slug } });
+      if (!existing) existing = await adoptRenamedIpo(ipo, incomingSlugs);
 
       await prisma.ipo.upsert({
         where: { slug: ipo.slug },
@@ -59,6 +62,27 @@ export async function ingestIpos(ipos: NormalizedIpo[]): Promise<IngestSummary> 
   }
 
   return summary;
+}
+
+/**
+ * When the feed changes an IPO's slug, moves the stored record (with its GMP
+ * and subscription history and any manually entered prices) to the new slug
+ * and remembers the old one, whose page then redirects. Only a record the feed
+ * no longer sends under its old slug is adopted, so two live feed records are
+ * never folded together. Returns the renamed record, or null.
+ */
+async function adoptRenamedIpo(ipo: NormalizedIpo, incomingSlugs: Set<string>) {
+  if (!ipo.openDate) return null;
+  const candidates = await prisma.ipo.findMany({
+    where: { ipoType: ipo.ipoType, openDate: new Date(ipo.openDate), slug: { notIn: [...incomingSlugs] } },
+  });
+  const match = candidates.find((candidate) => isSameIpo(candidate, ipo));
+  if (!match) return null;
+  logger.warn("IPO slug changed in the feed; renaming the stored record", { from: match.slug, to: ipo.slug });
+  return prisma.ipo.update({
+    where: { id: match.id },
+    data: { slug: ipo.slug, previousSlugs: { set: [...new Set([...match.previousSlugs, match.slug])] } },
+  });
 }
 
 export async function ingestGmp(gmp: NormalizedGmp): Promise<boolean> {

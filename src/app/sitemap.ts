@@ -1,17 +1,15 @@
 import type { MetadataRoute } from "next";
-import { prisma } from "@/db/prisma";
 import { siteConfig } from "@/lib/site-config";
-import { guides } from "@/content/guides";
-import { isIpoIndexable } from "@/services/ipo-summary";
-import { computeIpoStatus } from "@/utils/ipo-status";
+import { allGuides } from "@/content/guides";
+import { getIndexableIpoPages } from "@/services/ipo-query-service";
 
 // Rebuilt at most once a day, after the daily data refresh adds new IPOs.
 export const revalidate = 86400;
 
 /**
- * Every public page, including the IPO detail pages that have real data.
- * Announced IPOs without a price or dates, and stale records, are left out
- * (their pages are marked noindex) until real data arrives.
+ * Every public page, including the IPO detail pages with enough real content
+ * (see isIpoIndexable). Pages left out are also marked noindex, until their
+ * data arrives.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteConfig.url.replace(/\/$/, "");
@@ -30,9 +28,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page("/upcoming-ipos", "daily", 0.8),
     page("/recently-listed-ipos", "daily", 0.8),
     page("/ipo-allotment-status", "daily", 0.8),
+    page("/ipo-gmp-accuracy", "daily", 0.8),
     page("/compare", "weekly", 0.5),
     page("/guides", "monthly", 0.7),
-    ...guides.map((guide) => page(`/guides/${guide.slug}`, "monthly", 0.7)),
+    ...allGuides.map((guide) => page(`/guides/${guide.slug}`, "monthly", 0.7)),
     page("/about", "yearly", 0.4),
     page("/contact", "yearly", 0.3),
     page("/disclaimer", "yearly", 0.3),
@@ -41,24 +40,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const ipos = await prisma.ipo.findMany({
-      select: { slug: true, updatedAt: true, priceBandHigh: true, openDate: true, closeDate: true, listingDate: true },
-    });
+    const ipos = await getIndexableIpoPages(now);
     return staticPages.concat(
-      ipos
-        .filter((ipo) =>
-          isIpoIndexable(
-            {
-              status: computeIpoStatus(ipo),
-              priceBandHigh: ipo.priceBandHigh ? Number(ipo.priceBandHigh) : null,
-              openDate: ipo.openDate,
-              closeDate: ipo.closeDate,
-              listingDate: ipo.listingDate,
-            },
-            now,
-          ),
-        )
-        .map((ipo) => ({
+      ipos.map((ipo) => ({
           url: `${base}/ipo/${ipo.slug}`,
           lastModified: ipo.updatedAt,
           changeFrequency: "daily" as const,
