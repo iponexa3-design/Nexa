@@ -51,6 +51,9 @@ model Ipo {
   issuePrice         Decimal?  @map("issue_price")
   // Registrar to the issue (runs the allotment), from NSE issue information.
   registrar          String?
+  // Earlier slugs of this IPO (the feed renamed it, or a duplicate record was
+  // merged into it). Their pages redirect here permanently.
+  previousSlugs      String[]  @default([]) @map("previous_slugs")
   researchData       Json?     @map("research_data")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")

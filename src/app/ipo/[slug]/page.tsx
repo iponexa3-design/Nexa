@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { gmpSourceLabel } from "@/utils/gmp-source";
 import { subscriptionSourceLabel } from "@/utils/subscription-source";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getIpoBySlug } from "@/services/ipo-query-service";
+import { notFound, permanentRedirect } from "next/navigation";
+import { findRenamedIpoSlug, getGmpAccuracyData, getIpoBySlug } from "@/services/ipo-query-service";
+import { CLOSE_MARGIN_PTS, type GmpAccuracyRow } from "@/services/gmp-accuracy";
 import { GmpFreshnessNote, toneClass } from "@/components/gmp/indicators";
 import { AllotmentLinks, StageBadge } from "@/components/allotment/AllotmentLinks";
 import { allotmentStage, findRegistrar } from "@/services/allotment";
@@ -34,7 +35,7 @@ export async function generateMetadata(
   const { slug } = await props.params;
   const ipo = await getIpoBySlug(slug);
   if (!ipo) return { title: "IPO not found" };
-  const indexable = isIpoIndexable(ipo, new Date());
+  const indexable = isIpoIndexable({ ...ipo, companyOverview: ipo.research.about }, new Date());
   return {
     title: `${ipo.companyName} IPO - GMP, Price, Subscription & Listing`,
     description: buildIpoMetaDescription(summaryInput(ipo)),
@@ -57,10 +58,19 @@ function summaryInput(ipo: IpoDetail): IpoSummaryInput {
 export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
   const { slug } = await props.params;
   const ipo = await getIpoBySlug(slug);
-  if (!ipo) notFound();
+  if (!ipo) {
+    // An old address of a renamed or merged IPO.
+    const current = await findRenamedIpoSlug(slug);
+    if (current) permanentRedirect(`/ipo/${current}`);
+    notFound();
+  }
 
   const hasGmp = ipo.gmp !== null;
   const isListed = ipo.status === "LISTED";
+  // Optional context; the page renders without it if the comparison cannot be loaded.
+  const accuracy = await getGmpAccuracyData().catch(() => null);
+  const accuracyRow = accuracy?.rows.find((row) => row.slug === ipo.slug) ?? null;
+  const boardAccuracy = accuracy ? (ipo.ipoType === "SME" ? accuracy.sme : accuracy.mainboard) : null;
   const research = ipo.research;
   // Shown while allotment is relevant: from opening until shortly after listing.
   const allotment = allotmentStage(ipo, new Date());
@@ -213,6 +223,17 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
             <p className="mt-3 text-xs">
               <GmpFreshnessNote freshness={ipo.gmpFreshness} sourceUpdatedAt={ipo.gmpSourceUpdatedAt} status={ipo.status} source={ipo.gmpSource} />
             </p>
+            {boardAccuracy && boardAccuracy.count >= 5 ? (
+              <p className="mt-3 rounded-lg bg-[#f6faf9] px-3 py-2 text-sm leading-6 text-zinc-700">
+                How reliable is this? Across {boardAccuracy.count} {ipo.ipoType === "SME" ? "SME" : "mainboard"} IPOs
+                IPONexa tracked, the listing gain differed from what the final GMP implied by a typical{" "}
+                {boardAccuracy.medianAbsDifferencePts?.toFixed(1)} percentage points, and {boardAccuracy.belowGmpPct}% listed
+                below it.{" "}
+                <Link href="/ipo-gmp-accuracy" className="font-semibold text-[#174a52] underline underline-offset-4">
+                  See the GMP accuracy study
+                </Link>
+              </p>
+            ) : null}
             {ipo.gmpHistory.length > 1 ? (
               <div className="mt-5">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-zinc-500">
@@ -356,6 +377,30 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
         </Section>
       ) : null}
 
+      {isListed && accuracyRow ? (
+        <Section title="GMP vs Actual Listing">
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Field label="Final GMP before listing" value={formatCurrency(accuracyRow.finalGmp)} />
+            <Field label="GMP-implied gain" value={formatSignedPercent(accuracyRow.impliedGainPct)} />
+            <Field label="Actual listing gain" value={formatSignedPercent(accuracyRow.actualGainPct)} tone={accuracyRow.actualGainPct} />
+            <Field label="Difference" value={`${formatSignedPercent(accuracyRow.differencePts).replace("%", "")} pts`} tone={accuracyRow.differencePts} />
+          </dl>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-700">
+            {gmpOutcomeSentence(ipo.companyName, accuracyRow)}
+            {boardAccuracy && boardAccuracy.count >= 5
+              ? ` For comparison, across ${boardAccuracy.count} ${ipo.ipoType === "SME" ? "SME" : "mainboard"} IPOs we tracked, the typical gap was ${boardAccuracy.medianAbsDifferencePts?.toFixed(1)} points.`
+              : ""}
+          </p>
+          <p className="mt-3 text-xs text-zinc-500">
+            Final GMP quoted on {formatDate(accuracyRow.finalGmpQuotedAt)}; both gains are measured against{" "}
+            {formatCurrency(accuracyRow.basisPrice)}.{" "}
+            <Link href="/ipo-gmp-accuracy" className="underline underline-offset-2">
+              How we measure GMP accuracy
+            </Link>
+          </p>
+        </Section>
+      ) : null}
+
       {(research.strengths.length > 0 || research.risks.length > 0) ? (
         <Section title="Company Strengths & Risks">
           <div className="grid gap-6 md:grid-cols-2">
@@ -418,6 +463,16 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
         <GuideLinks
           title="Understand these numbers"
           links={[
+            ...(ipo.status === "UPCOMING" || ipo.status === "OPEN"
+              ? [{ href: "/guides/how-to-apply-for-ipo", label: "How to apply for an IPO", text: "UPI mandate, bidding at cut-off and how many lots to apply for." }]
+              : []),
+            ...(ipo.ipoType === "SME"
+              ? [{ href: "/guides/sme-vs-mainboard-ipo", label: "SME vs mainboard IPOs", text: "Minimum application, market makers, listing limits and the extra risks." }]
+              : []),
+            { href: "/guides/how-to-read-an-rhp", label: "How to read the RHP", text: "The seven sections of the offer document worth reading." },
+            ...(isListed
+              ? [{ href: "/guides/ipo-listing-gains-tax", label: "Tax on listing gains", text: "Short-term and long-term capital gains on IPO shares." }]
+              : []),
             { href: "/guides/ipo-gmp-explained", label: "What is IPO GMP?", text: "Why GMP is unofficial and how the estimate is calculated." },
             { href: "/guides/ipo-subscription-explained", label: "Subscription explained", text: "QIB, NII and retail figures, and why BSE + NSE are combined." },
             { href: "/guides/ipo-allotment-process", label: "How allotment works", text: "The T+3 timeline, the retail lottery and where to check status." },
@@ -439,6 +494,20 @@ export default async function IpoDetailsPage(props: PageProps<"/ipo/[slug]">) {
       </div>
     </div>
   );
+}
+
+/** One plain sentence on how the listing compared with the final GMP. */
+function gmpOutcomeSentence(companyName: string, row: GmpAccuracyRow): string {
+  const gap = Math.abs(row.differencePts);
+  const implied = formatSignedPercent(row.impliedGainPct);
+  const actual = formatSignedPercent(row.actualGainPct);
+  if (gap <= CLOSE_MARGIN_PTS) {
+    return `The grey market was close: its final GMP implied a ${implied} listing and ${companyName} listed ${actual}, within ${gap.toFixed(1)} points.`;
+  }
+  if (!row.directionMatched) {
+    return `The grey market pointed the wrong way: its final GMP implied ${implied}, but ${companyName} listed ${actual}.`;
+  }
+  return `${companyName} listed ${row.differencePts < 0 ? "below" : "above"} what the grey market implied: ${actual} against a GMP-implied ${implied}, a gap of ${gap.toFixed(1)} points.`;
 }
 
 /** The one schedule fact that matters for the IPO's current stage. */

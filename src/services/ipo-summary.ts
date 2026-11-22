@@ -53,17 +53,37 @@ export function isStaleClosedIpo(ipo: Pick<IpoSummaryInput, "status" | "closeDat
   return days !== null && days > STALE_CLOSED_DAYS;
 }
 
+/** Shorter than this, a company overview is a one-liner, not a description. */
+const MIN_OVERVIEW_CHARS = 120;
+
+export type IpoIndexInput = Pick<
+  IpoSummaryInput,
+  "status" | "priceBandHigh" | "openDate" | "closeDate" | "listingDate" | "subscriptionTimes" | "gmp" | "actualListingPrice"
+> & {
+  /** The company overview shown on the page, if any. */
+  companyOverview: string | null | undefined;
+};
+
 /**
  * Whether an IPO page has enough real information to be indexed by search
- * engines: announced IPOs without a price band or dates, and stale closed
- * records, are kept out until real data arrives.
+ * engines. Announced IPOs without a price band or dates, and stale closed
+ * records, are kept out. So are pages that would only repeat facts every IPO
+ * site carries:
+ * - an IPO not yet listed needs the company overview or a market figure
+ *   (subscription or GMP);
+ * - a listed IPO needs at least two of subscription figures, a GMP quote and
+ *   the actual listing result, since its value is how the issue played out
+ *   (the overview comes from the data feed and is not counted).
+ * Pages left out stay reachable on the site and become indexable once that
+ * data arrives.
  */
-export function isIpoIndexable(
-  ipo: Pick<IpoSummaryInput, "status" | "priceBandHigh" | "openDate" | "closeDate" | "listingDate">,
-  now: Date,
-): boolean {
+export function isIpoIndexable(ipo: IpoIndexInput, now: Date): boolean {
   if (!ipo.priceBandHigh && !ipo.openDate) return false;
-  return !isStaleClosedIpo(ipo, now);
+  if (isStaleClosedIpo(ipo, now)) return false;
+  const marketData = [ipo.subscriptionTimes !== null, ipo.gmp !== null, ipo.actualListingPrice !== null].filter(Boolean).length;
+  if (ipo.status === "LISTED") return marketData >= 2;
+  const hasOverview = (ipo.companyOverview?.trim().length ?? 0) >= MIN_OVERVIEW_CHARS;
+  return hasOverview || marketData >= 1;
 }
 
 function priceText(ipo: IpoSummaryInput): string | null {

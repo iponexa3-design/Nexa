@@ -107,6 +107,11 @@ export default async function GmpTrackerPage(props: PageProps<"/gmp-tracker">) {
               describes the subscription window only and is not a recommendation.
             </p>
             <p className="mt-2">
+              <Link href="/ipo-gmp-accuracy" className="font-semibold text-[#174a52] underline decoration-[#b9d4d2] underline-offset-4">
+                How accurate has GMP been? Our comparison with actual listing prices →
+              </Link>
+            </p>
+            <p className="mt-2">
               <Link href="/compare" className="font-semibold text-[#174a52] underline decoration-[#b9d4d2] underline-offset-4">
                 Compare IPO: put 2 or 3 IPOs side by side →
               </Link>

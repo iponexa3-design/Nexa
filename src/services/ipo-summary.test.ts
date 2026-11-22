@@ -107,13 +107,44 @@ describe("buildIpoSummary", () => {
 });
 
 describe("isIpoIndexable", () => {
+  const overview = "Jio Platforms runs India's largest mobile network and a range of digital services, from broadband and payments to streaming and cloud.";
+  const page = { ...listed, companyOverview: overview };
+
   it("keeps announced IPOs without price or dates, and stale closed records, out of search", () => {
-    expect(isIpoIndexable(listed, NOW)).toBe(true);
-    expect(isIpoIndexable({ ...listed, priceBandHigh: null, openDate: null }, NOW)).toBe(false);
-    expect(isIpoIndexable({ ...listed, status: "CLOSED", closeDate: "2026-09-17", listingDate: null }, NOW)).toBe(false);
+    expect(isIpoIndexable(page, NOW)).toBe(true);
+    expect(isIpoIndexable({ ...page, priceBandHigh: null, openDate: null }, NOW)).toBe(false);
+    expect(isIpoIndexable({ ...page, status: "CLOSED", closeDate: "2026-09-17", listingDate: null }, NOW)).toBe(false);
     // Closed a few days ago and awaiting listing: still a normal page.
-    expect(isIpoIndexable({ ...listed, status: "CLOSED", closeDate: "2026-10-27", listingDate: null }, NOW)).toBe(true);
+    expect(isIpoIndexable({ ...page, status: "CLOSED", closeDate: "2026-10-27", listingDate: null }, NOW)).toBe(true);
     expect(isStaleClosedIpo({ status: "CLOSED", closeDate: "2026-10-20", listingDate: null }, NOW)).toBe(false);
+  });
+
+  it("indexes a listed IPO only with two of subscription, GMP and listing result", () => {
+    const bare = { ...page, subscriptionTimes: null, gmp: null, actualListingPrice: null };
+    // The feed's overview does not count for a listed IPO.
+    expect(isIpoIndexable(bare, NOW)).toBe(false);
+    expect(isIpoIndexable({ ...bare, actualListingPrice: 1358 }, NOW)).toBe(false);
+    expect(isIpoIndexable({ ...bare, actualListingPrice: 1358, subscriptionTimes: 3.2 }, NOW)).toBe(true);
+    expect(isIpoIndexable({ ...bare, actualListingPrice: 1358, gmp: 40 }, NOW)).toBe(true);
+  });
+
+  it("indexes a current IPO with an overview or a market figure", () => {
+    const upcoming = {
+      ...page,
+      status: "UPCOMING" as const,
+      openDate: "2026-11-05",
+      closeDate: "2026-11-07",
+      listingDate: null,
+      companyOverview: null,
+      subscriptionTimes: null,
+      gmp: null,
+      actualListingPrice: null,
+    };
+    expect(isIpoIndexable(upcoming, NOW)).toBe(false);
+    // A one-line overview is not enough.
+    expect(isIpoIndexable({ ...upcoming, companyOverview: "A telecom company." }, NOW)).toBe(false);
+    expect(isIpoIndexable({ ...upcoming, companyOverview: overview }, NOW)).toBe(true);
+    expect(isIpoIndexable({ ...upcoming, gmp: 12 }, NOW)).toBe(true);
   });
 });
 

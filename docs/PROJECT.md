@@ -278,6 +278,7 @@ Log in: `ssh -i ~/.ssh/iponexa_server ubuntu@159.89.167.205`, then `cd ~/iponexa
 | Last daily refresh | `cat .data/refresh-state.json` and `pm2 logs iponexa \| grep "Daily IPO refresh"` |
 | Enter a listing price by hand | `npm run listing:set -- <slug> <price>` |
 | Listed IPOs still missing a price | `npm run listing:set -- missing` |
+| Merge IPOs stored twice (feed changed the slug) | `npm run ipos:dedupe` (preview), then `npm run ipos:dedupe -- --apply` |
 | Deployed versions | `cat .data/deploy-history` |
 | Database backups | `ls -lh ~/backups` and `cat ~/backups/backup.log` |
 | Certificate status | `sudo certbot certificates` |
@@ -330,6 +331,7 @@ case of losing the whole server. Copying backups off the server is an open item.
 | Yellow "last refreshed … hours ago" on the tracker | Daily refresh failed or budget reached. Check `pm2 logs iponexa \| grep refresh` and `.data/ipoalerts-usage.json`; a common cause is an expired `IPO_API_KEY` |
 | "Monthly API budget … reached" in logs | 4,500 calls used; refresh resumes next month. Raise `IPO_API_MONTHLY_BUDGET` only if the plan allows |
 | A listed IPO has no listing price | Exchange file missing that day or listing date wrong at the source: `npm run listing:set -- <slug> <price>` |
+| The same IPO appears twice | The feed changed its slug before this was handled on import. Run `npm run ipos:dedupe`, check the preview, then add `-- --apply`; the old address redirects to the kept one |
 | Site works in one browser, not another | That browser cached the old (pre-launch) address: close it fully, clear its DNS cache (`edge://net-internals/#dns` / `chrome://net-internals/#dns`) and cached files |
 | Google Analytics shows nothing | Check Reports → Realtime while visiting from a phone without an ad blocker; the "no data received" banner can lag up to 48 h |
 | No ads showing | Normal until Google approves the site (AdSense → Sites, can take days to weeks) and Auto ads is on; ad blockers hide ads; check `/ads.txt` is reachable |

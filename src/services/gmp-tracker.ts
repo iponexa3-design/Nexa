@@ -69,7 +69,7 @@ export const COMPARE_MAX = 3;
 
 export type TrackerCategory = "open" | "upcoming" | "closed" | "listed";
 
-function normalizeCompanyName(name: string): string {
+export function normalizeCompanyName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9 ]/g, " ")

@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContentPage, Faq, ProseSection } from "@/components/content/ContentPage";
-import { findGuide, guides } from "@/content/guides";
+import { allGuides, findGuide } from "@/content/guides";
 
 export function generateStaticParams() {
-  return guides.map((guide) => ({ slug: guide.slug }));
+  return allGuides.map((guide) => ({ slug: guide.slug }));
 }
 
 export async function generateMetadata(props: PageProps<"/guides/[slug]">): Promise<Metadata> {
@@ -22,7 +22,7 @@ export async function generateMetadata(props: PageProps<"/guides/[slug]">): Prom
 export default async function GuidePage(props: PageProps<"/guides/[slug]">) {
   const guide = findGuide((await props.params).slug);
   if (!guide) notFound();
-  const others = guides.filter((other) => other.slug !== guide.slug);
+  const others = allGuides.filter((other) => other.slug !== guide.slug);
 
   return (
     <ContentPage eyebrow="IPO Guide" title={guide.title} intro={guide.intro} updated={guide.updated}>

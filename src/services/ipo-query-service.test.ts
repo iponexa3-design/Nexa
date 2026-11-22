@@ -45,7 +45,8 @@ describe("getHomepageIpoGroups", () => {
           issuePrice: 110,
           actualListingPrice: null,
           openDate: "2026-09-10",
-          closeDate: "2026-11-20",
+          // Relative to today, so the IPO is still open whenever the test runs.
+          closeDate: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
           listingDate: null,
           status: "OPEN",
           symbol: "EXAMPLE",
